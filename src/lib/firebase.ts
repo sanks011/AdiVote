@@ -6,13 +6,13 @@ import { toast } from 'sonner';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDMU84yDaLumIIdujnY4FXPJ3ikCsEvMZ8",
-  authDomain: "adivote-138ce.firebaseapp.com",
-  projectId: "adivote-138ce",
-  storageBucket: "adivote-138ce.firebasestorage.app",
-  messagingSenderId: "524851333502",
-  appId: "1:524851333502:web:15a67f4ff592ffd972cb2f",
-  measurementId: "G-M6BDRN5M6M"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
