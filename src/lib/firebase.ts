@@ -80,12 +80,12 @@ export const logOut = async () => {
 // Helper functions
 const isValidEmail = (email: string) => {
   const studentDomain = "@stu.adamasuniversity.ac.in";
-  const facultyDomain = "@stu.adamasuniversity.ac.in";
+  const facultyDomain = "@adamasuniversity.ac.in";
   return email.endsWith(studentDomain) || email.endsWith(facultyDomain);
 };
 
 export const isAdmin = (email: string) => {
-  const facultyDomain = "@stu.adamasuniversity.ac.in";
+  const facultyDomain = "@adamasuniversity.ac.in";
   return email.endsWith(facultyDomain);
 };
 

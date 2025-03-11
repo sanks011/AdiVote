@@ -22,18 +22,33 @@ const ResultsExport = () => {
         id: doc.id,
         ...doc.data()
       })) as Candidate[];
+
+      // Get voter data
+      const usersRef = collection(db, 'users');
+      const usersSnapshot = await getDocs(usersRef);
+      const voterData = usersSnapshot.docs
+        .map(doc => doc.data())
+        .filter(user => user.hasVoted);
       
       // Convert to CSV
-      const headers = ['ID', 'Name', 'Position', 'Votes'];
+      const headers = ['Candidate ID', 'Name', 'Position', 'Votes', 'Voter Emails'];
       
       const csvContent = [
         headers.join(','),
-        ...candidatesData.map(candidate => [
-          candidate.id,
-          `"${candidate.name}"`,
-          `"${candidate.position}"`,
-          candidate.votes || 0
-        ].join(','))
+        ...candidatesData.map(candidate => {
+          const votersForCandidate = voterData
+            .filter(voter => voter.votedFor === candidate.id)
+            .map(voter => voter.email)
+            .join('; ');
+          
+          return [
+            candidate.id,
+            `"${candidate.name}"`,
+            `"${candidate.position}"`,
+            candidate.votes || 0,
+            `"${votersForCandidate}"`
+          ].join(',');
+        })
       ].join('\n');
       
       // Create and download file

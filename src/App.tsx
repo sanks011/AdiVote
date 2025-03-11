@@ -53,6 +53,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
+  const { currentUser, isAdmin, loading, isVerified } = useAuth();
+
+  // Redirect /admin to /admin-login if not authenticated
+  if (window.location.pathname.startsWith('/admin') && 
+      !loading && 
+      (!currentUser || !isAdmin || !isVerified)) {
+    return <Navigate to="/admin-login" />;
+  }
+
   return (
     <Routes>
       <Route path="/" element={<Index />} />
