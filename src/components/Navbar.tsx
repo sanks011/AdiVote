@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,12 @@ import { toast } from 'sonner';
 const Navbar = () => {
   const { currentUser, isAdmin } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   
   const handleLogout = async () => {
     await logOut();
     toast.success('Logged out successfully');
+    navigate('/');
   };
   
   // Don't show navbar on admin login page
@@ -74,14 +76,14 @@ const Navbar = () => {
 
             {currentUser ? (
               <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
+                <Link to="/profile" className="flex items-center space-x-2">
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                     <User size={16} className="text-primary" />
                   </div>
                   <span className="text-sm font-medium text-gray-700 hidden sm:block">
                     {currentUser.email?.split('@')[0]}
                   </span>
-                </div>
+                </Link>
                 
                 <Button 
                   variant="ghost" 

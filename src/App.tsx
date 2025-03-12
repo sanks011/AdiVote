@@ -14,7 +14,9 @@ import Results from "./pages/Results";
 import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
+import UserProfile from "./pages/UserProfile"; // New import
 import { useAuth } from "./contexts/AuthContext";
+import ElectionTimer from "./services/ElectionTimer";
 
 const queryClient = new QueryClient();
 
@@ -55,10 +57,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   const { currentUser, isAdmin, loading, isVerified } = useAuth();
 
-  // Redirect /admin to /admin-login if not authenticated
+  // Redirect any /admin/* path to /admin-login if not authenticated
   if (window.location.pathname.startsWith('/admin') && 
       !loading && 
-      (!currentUser || !isAdmin || !isVerified)) {
+      (!currentUser || !isAdmin || !isVerified) &&
+      window.location.pathname !== '/admin-login') {
     return <Navigate to="/admin-login" />;
   }
 
@@ -84,6 +87,14 @@ const AppRoutes = () => {
           </AdminRoute>
         } 
       />
+      <Route 
+        path="/profile" 
+        element={
+          <ProtectedRoute>
+            <UserProfile />
+          </ProtectedRoute>
+        } 
+      />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -99,6 +110,7 @@ const App = () => (
           <div className="flex flex-col min-h-screen">
             <Navbar />
             <main className="flex-grow pt-16">
+              <ElectionTimer />
               <AppRoutes />
             </main>
             <Footer />

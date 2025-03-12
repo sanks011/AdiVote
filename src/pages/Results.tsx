@@ -215,6 +215,45 @@ const Results = () => {
           </CardContent>
         </Card>
       )}
+      
+      {/* All Candidates */}
+      <div className="mt-12">
+        <h2 className="text-2xl font-bold mb-6">All Candidates</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {candidates.map(candidate => (
+            <Card key={candidate.id} className="overflow-hidden">
+              <div className="aspect-square w-full overflow-hidden">
+                <img 
+                  src={candidate.photoURL || '/placeholder.svg'} 
+                  alt={candidate.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/placeholder.svg';
+                  }}
+                />
+              </div>
+              <CardContent className="pt-6">
+                <h3 className="text-xl font-bold">{candidate.name}</h3>
+                <p className="text-gray-500 mb-2">{candidate.position}</p>
+                <div className="mt-4">
+                  <div className="w-full bg-gray-100 rounded-full h-2.5">
+                    <div 
+                      className="bg-primary h-2.5 rounded-full" 
+                      style={{ width: `${totalVotes > 0 ? Math.round(((candidate.votes || 0) / totalVotes) * 100) : 0}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-sm text-gray-500">{candidate.votes || 0} votes</span>
+                    <span className="text-sm font-medium">
+                      {totalVotes > 0 ? Math.round(((candidate.votes || 0) / totalVotes) * 100) : 0}%
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

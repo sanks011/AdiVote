@@ -323,4 +323,4 @@ export const uploadImage = async (file: File, path: string) => {
   }
 };
 
-export { auth, db, storage };
+export { auth, db, storage, Timestamp };

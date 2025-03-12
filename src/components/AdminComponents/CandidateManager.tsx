@@ -28,8 +28,9 @@ import {
   Candidate
 } from '../../lib/firebase';
 import { toast } from 'sonner';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import ImageUpload from './ImageUpload';
 
 const CandidateManager = () => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -42,6 +43,7 @@ const CandidateManager = () => {
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
   const [bio, setBio] = useState('');
+  const [photoURL, setPhotoURL] = useState('/placeholder.svg');
 
   useEffect(() => {
     fetchCandidates();
@@ -63,6 +65,7 @@ const CandidateManager = () => {
     setName('');
     setPosition('');
     setBio('');
+    setPhotoURL('/placeholder.svg');
     setEditingCandidate(null);
   };
 
@@ -74,6 +77,7 @@ const CandidateManager = () => {
       setName(candidate.name);
       setPosition(candidate.position);
       setBio(candidate.bio);
+      setPhotoURL(candidate.photoURL || '/placeholder.svg');
     }
     
     setDialogOpen(true);
@@ -94,7 +98,7 @@ const CandidateManager = () => {
         name,
         position,
         bio,
-        photoURL: '/placeholder.svg' // Use a default placeholder image
+        photoURL
       };
       
       if (editingCandidate && editingCandidate.id) {
@@ -167,6 +171,7 @@ const CandidateManager = () => {
                 <TableRow key={candidate.id}>
                   <TableCell>
                     <Avatar>
+                      <AvatarImage src={candidate.photoURL} alt={candidate.name} />
                       <AvatarFallback>{candidate.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                   </TableCell>
@@ -201,6 +206,11 @@ const CandidateManager = () => {
           </DialogHeader>
           
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
+            <ImageUpload 
+              onImageUploaded={setPhotoURL} 
+              currentImage={photoURL}
+            />
+            
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input 

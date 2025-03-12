@@ -77,7 +77,14 @@ const ResultsExport = () => {
       <div className="space-y-4">
         <p className="text-gray-600 mb-4">
           Export the current election results to a CSV file for further analysis or record-keeping.
+          The exported file will include:
         </p>
+        
+        <ul className="list-disc pl-5 space-y-1 text-gray-600 mb-4">
+          <li>Candidate details (name, position, etc.)</li>
+          <li>Total votes received by each candidate</li>
+          <li>List of voter emails for each candidate</li>
+        </ul>
         
         <Button 
           className="w-full sm:w-auto" 
