@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -68,6 +67,7 @@ const Verification = () => {
       const user = await loginWithEmail(email, password);
       if (user) {
         if (user.emailVerified) {
+          // Direct redirect to voting page after successful login
           navigate('/voting');
         } else {
           setVerificationMessage('Please check your email and verify your account before proceeding.');
