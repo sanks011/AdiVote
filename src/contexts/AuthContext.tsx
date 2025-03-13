@@ -9,6 +9,7 @@ interface AuthContextType {
   isAdmin: boolean;
   loading: boolean;
   isVerified: boolean;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,7 +17,8 @@ const AuthContext = createContext<AuthContextType>({
   userData: null,
   isAdmin: false,
   loading: true,
-  isVerified: false
+  isVerified: false,
+  refreshUserData: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -28,15 +30,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
 
+  const refreshUserData = async () => {
+    if (currentUser) {
+      try {
+        // Force reload the user to get the latest metadata from Firebase Auth
+        await currentUser.reload();
+        // Update the current user reference to get updated email verification status
+        const updatedUser = auth.currentUser;
+        setCurrentUser(updatedUser);
+        
+        if (updatedUser) {
+          const data = await getUserData(updatedUser.uid);
+          setUserData(data);
+          setIsAdmin(data?.isAdmin || false);
+          setIsVerified(updatedUser.emailVerified);
+        }
+      } catch (error) {
+        console.error("Error refreshing user data:", error);
+      }
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
       
       if (user) {
-        const data = await getUserData(user.uid);
-        setUserData(data);
-        setIsAdmin(data?.isAdmin || false);
-        setIsVerified(user.emailVerified);
+        try {
+          const data = await getUserData(user.uid);
+          setUserData(data);
+          setIsAdmin(data?.isAdmin || false);
+          setIsVerified(user.emailVerified);
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
       } else {
         setUserData(null);
         setIsAdmin(false);
@@ -54,7 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userData,
     isAdmin,
     loading,
-    isVerified
+    isVerified,
+    refreshUserData
   };
 
   return (

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, User } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, User, onAuthStateChanged, reload } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
@@ -73,6 +73,57 @@ export const logOut = async () => {
     return true;
   } catch (error) {
     console.error('Error signing out: ', error);
+    return false;
+  }
+};
+
+// New function to check email verification status
+export const checkEmailVerification = async (user: User): Promise<boolean> => {
+  try {
+    // Reload the user to get the latest data from Firebase
+    await reload(user);
+    return user.emailVerified;
+  } catch (error) {
+    console.error('Error checking email verification: ', error);
+    return false;
+  }
+};
+
+// New function to handle verification success
+export const handleVerificationSuccess = async (user: User): Promise<boolean> => {
+  try {
+    // Make sure user is reloaded to get latest verification status
+    await reload(user);
+    
+    // Ensure the user document exists in Firestore
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      // Create a new user document if it doesn't exist
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.email?.split('@')[0],
+        photoURL: null,
+        isAdmin: isAdmin(user.email || ''),
+        createdAt: Timestamp.now(),
+        lastLogin: Timestamp.now(),
+        hasVoted: false,
+        emailVerified: user.emailVerified
+      });
+    } else {
+      // Update the existing user document
+      await updateDoc(userRef, {
+        lastLogin: Timestamp.now(),
+        emailVerified: user.emailVerified
+      });
+    }
+    
+    console.log("User document created/updated successfully");
+    return true;
+  } catch (error) {
+    console.error('Error handling verification success: ', error);
     return false;
   }
 };

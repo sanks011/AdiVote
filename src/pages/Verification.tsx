@@ -9,10 +9,11 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { loginWithEmail, registerWithEmail } from '../lib/firebase';
+import { loginWithEmail, registerWithEmail, checkEmailVerification, handleVerificationSuccess, auth } from '../lib/firebase';
+import { toast } from 'sonner';
 
 const Verification = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, refreshUserData } = useAuth();
   const navigate = useNavigate();
   
   const [email, setEmail] = useState('');
@@ -22,16 +23,59 @@ const Verification = () => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('login');
   const [verificationMessage, setVerificationMessage] = useState('');
+  const [checkingVerification, setCheckingVerification] = useState(false);
   
+  // Handle verification status check
   useEffect(() => {
     if (currentUser) {
       if (currentUser.emailVerified) {
         navigate('/voting');
       } else {
         setVerificationMessage('Please check your email and verify your account before proceeding.');
+        
+        // Start polling for email verification
+        const intervalId = setInterval(async () => {
+          if (currentUser) {
+            setCheckingVerification(true);
+            const isVerified = await checkEmailVerification(currentUser);
+            
+            if (isVerified) {
+              clearInterval(intervalId);
+              // Process the user data before redirecting
+              setVerificationMessage('Email verified! Creating your account...');
+              
+              try {
+                // Create/update user in Firestore before redirecting
+                await handleVerificationSuccess(currentUser);
+                
+                // Fully refresh the user data in the auth context
+                await refreshUserData();
+                
+                setVerificationMessage('Email verified! Redirecting to voting page...');
+                
+                // Add a delay before redirect to ensure Firestore operations complete
+                setTimeout(() => {
+                  // Log out the verification status for debugging
+                  console.log("Verification complete, redirecting to voting page");
+                  console.log("User verification status:", currentUser.emailVerified);
+                  
+                  navigate('/voting');
+                }, 3000); // Increased delay to 3 seconds
+              } catch (error) {
+                console.error('Error during verification process:', error);
+                setVerificationMessage('Verification successful but there was an issue setting up your account. Please try logging in.');
+                toast.error('Error setting up your account. Please try logging in again.');
+              }
+            }
+            setCheckingVerification(false);
+          }
+        }, 3000); // Check every 3 seconds
+        
+        // Cleanup interval on component unmount
+        return () => clearInterval(intervalId);
       }
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, navigate, refreshUserData]);
   
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -113,7 +157,7 @@ const Verification = () => {
     try {
       const user = await registerWithEmail(email, password);
       if (user) {
-        setVerificationMessage('Registration successful! Please check your email to verify your account before logging in.');
+        setVerificationMessage('Registration successful! Please check your email to verify your account. You will be automatically redirected once verified.');
         setActiveTab('login');
       }
     } catch (err: any) {
@@ -145,7 +189,15 @@ const Verification = () => {
             {verificationMessage && (
               <Alert className="mb-4 bg-primary/10 text-primary border-primary">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{verificationMessage}</AlertDescription>
+                <AlertDescription>
+                  {verificationMessage}
+                  {checkingVerification && (
+                    <span className="block mt-2">
+                      <Loader2 className="inline-block h-4 w-4 animate-spin mr-2" />
+                      Checking verification status...
+                    </span>
+                  )}
+                </AlertDescription>
               </Alert>
             )}
             
@@ -169,7 +221,7 @@ const Verification = () => {
                           className="pl-10"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          disabled={loading}
+                          disabled={loading || checkingVerification}
                         />
                       </div>
                     </div>
@@ -185,12 +237,12 @@ const Verification = () => {
                           className="pl-10"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          disabled={loading}
+                          disabled={loading || checkingVerification}
                         />
                       </div>
                     </div>
                     
-                    <Button type="submit" className="w-full" disabled={loading}>
+                    <Button type="submit" className="w-full" disabled={loading || checkingVerification}>
                       {loading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -218,7 +270,7 @@ const Verification = () => {
                           className="pl-10"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          disabled={loading}
+                          disabled={loading || checkingVerification}
                         />
                       </div>
                     </div>
@@ -234,7 +286,7 @@ const Verification = () => {
                           className="pl-10"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          disabled={loading}
+                          disabled={loading || checkingVerification}
                         />
                       </div>
                     </div>
@@ -250,12 +302,12 @@ const Verification = () => {
                           className="pl-10"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          disabled={loading}
+                          disabled={loading || checkingVerification}
                         />
                       </div>
                     </div>
                     
-                    <Button type="submit" className="w-full" disabled={loading}>
+                    <Button type="submit" className="w-full" disabled={loading || checkingVerification}>
                       {loading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
