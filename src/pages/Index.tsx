@@ -313,6 +313,7 @@ const Index = () => {
   };
 
   return (
+    <>
     <motion.main 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -1105,6 +1106,7 @@ const Index = () => {
         </div>
       </section>
     </motion.main>
+    </>
   );
 };
 

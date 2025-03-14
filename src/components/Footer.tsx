@@ -79,6 +79,7 @@ const Footer = () => {
   }
 
   return (
+    <>
     <footer className="border-t border-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
@@ -132,6 +133,8 @@ const Footer = () => {
         </div>
       </div>
     </footer>
+
+    </>
   );
 };
 
