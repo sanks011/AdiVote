@@ -128,7 +128,7 @@ const Navbar = () => {
   };
 
   return (
-    <>
+    <div>
       <motion.div 
         className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#33CC33] to-[#2ecc71] z-50"
         style={{ scaleX: scrollYProgress, transformOrigin: "0%" }}
@@ -482,7 +482,7 @@ const Navbar = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 };
 
