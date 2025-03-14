@@ -14,7 +14,8 @@ import Results from "./pages/Results";
 import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
-import UserProfile from "./pages/UserProfile"; // New import
+import UserProfile from "./pages/UserProfile";
+import ClassBrowser from "./pages/ClassBrowser";
 import { useAuth } from "./contexts/AuthContext";
 import ElectionTimer from "./services/ElectionTimer";
 
@@ -92,6 +93,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <UserProfile />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/classes" 
+        element={
+          <ProtectedRoute>
+            <ClassBrowser />
           </ProtectedRoute>
         } 
       />

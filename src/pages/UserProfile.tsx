@@ -6,11 +6,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUserData } from '../lib/firebase';
-import { Loader2, User, Mail, Calendar, Vote, Clock } from 'lucide-react';
+import { Loader2, User, Mail, Calendar, Vote, Clock, School } from 'lucide-react';
 import { format } from 'date-fns';
 
 const UserProfile = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userClass } = useAuth();
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [votedCandidate, setVotedCandidate] = useState<any>(null);
@@ -65,44 +65,60 @@ const UserProfile = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-      <Card className="mb-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 md:py-10">
+      <Card className="mb-6 md:mb-8">
         <CardHeader className="pb-0">
-          <CardTitle className="text-2xl">User Profile</CardTitle>
+          <CardTitle className="text-xl md:text-2xl">User Profile</CardTitle>
           <CardDescription>
             View and manage your account information
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <Avatar className="h-24 w-24 border-2 border-primary/20">
-              <AvatarFallback className="text-2xl">
+        <CardContent className="pt-4 md:pt-6">
+          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
+            <Avatar className="h-20 w-20 md:h-24 md:w-24 border-2 border-primary/20">
+              <AvatarFallback className="text-xl md:text-2xl">
                 {userData.email?.charAt(0).toUpperCase() || 'U'}
               </AvatarFallback>
             </Avatar>
             
-            <div>
-              <h2 className="text-2xl font-bold mb-2">{userData.displayName || userData.email?.split('@')[0]}</h2>
-              <div className="flex items-center gap-2 text-gray-600 mb-2">
+            <div className="text-center md:text-left">
+              <h2 className="text-xl md:text-2xl font-bold mb-2">{userData.displayName || userData.email?.split('@')[0]}</h2>
+              <div className="flex items-center gap-2 text-gray-600 mb-2 justify-center md:justify-start">
                 <Mail className="h-4 w-4" />
-                <span>{userData.email}</span>
+                <span className="text-sm md:text-base">{userData.email}</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-600">
+              <div className="flex items-center gap-2 text-gray-600 justify-center md:justify-start">
                 <Calendar className="h-4 w-4" />
-                <span>Joined: {userData.createdAt ? format(userData.createdAt.toDate(), 'MMMM d, yyyy') : 'Unknown'}</span>
+                <span className="text-sm md:text-base">Joined: {userData.createdAt ? format(userData.createdAt.toDate(), 'MMMM d, yyyy') : 'Unknown'}</span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
       
-      <Tabs defaultValue="activity">
-        <TabsList className="grid w-full grid-cols-2">
+      {userClass && (
+        <Card className="mb-6">
+          <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <School className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Your Class</p>
+                <h3 className="text-lg font-semibold">{userClass.name}</h3>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      <Tabs defaultValue="activity" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="info">Account Info</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="activity" className="mt-6">
+        <TabsContent value="activity">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Voting History</CardTitle>
@@ -118,7 +134,7 @@ const UserProfile = () => {
                   {userData.votedAt && (
                     <div className="flex items-center gap-2 text-gray-600">
                       <Clock className="h-4 w-4" />
-                      <span>Voted on: {format(userData.votedAt.toDate(), 'MMMM d, yyyy h:mm a')}</span>
+                      <span className="text-sm">Voted on: {format(userData.votedAt.toDate(), 'MMMM d, yyyy h:mm a')}</span>
                     </div>
                   )}
                   
@@ -148,7 +164,7 @@ const UserProfile = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="info" className="mt-6">
+        <TabsContent value="info">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Account Details</CardTitle>
@@ -161,7 +177,7 @@ const UserProfile = () => {
               
               <div>
                 <p className="text-sm font-medium mb-1">Email</p>
-                <p>{userData.email}</p>
+                <p className="break-all">{userData.email}</p>
               </div>
               
               <div>

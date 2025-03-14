@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { User } from 'firebase/auth';
-import { auth, getUserData } from '../lib/firebase';
+import { auth, getUserData, getAllClasses, getClassById } from '../lib/firebase';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -10,6 +10,9 @@ interface AuthContextType {
   loading: boolean;
   isVerified: boolean;
   refreshUserData: () => Promise<void>;
+  userClass: any | null;
+  classes: any[] | null;
+  refreshClasses: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,7 +21,10 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   loading: true,
   isVerified: false,
-  refreshUserData: async () => {}
+  refreshUserData: async () => {},
+  userClass: null,
+  classes: null,
+  refreshClasses: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -29,6 +35,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [userClass, setUserClass] = useState<any | null>(null);
+  const [classes, setClasses] = useState<any[] | null>(null);
 
   const refreshUserData = async () => {
     if (currentUser) {
@@ -44,10 +52,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserData(data);
           setIsAdmin(data?.isAdmin || false);
           setIsVerified(updatedUser.emailVerified);
+          
+          // If user has a class, load it
+          if (data?.classId) {
+            const classData = await getClassById(data.classId);
+            setUserClass(classData);
+          } else {
+            setUserClass(null);
+          }
         }
       } catch (error) {
         console.error("Error refreshing user data:", error);
       }
+    }
+  };
+  
+  const refreshClasses = async () => {
+    try {
+      const allClasses = await getAllClasses();
+      setClasses(allClasses);
+    } catch (error) {
+      console.error("Error fetching classes:", error);
     }
   };
 
@@ -61,6 +86,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserData(data);
           setIsAdmin(data?.isAdmin || false);
           setIsVerified(user.emailVerified);
+          
+          // If user has a class, load it
+          if (data?.classId) {
+            const classData = await getClassById(data.classId);
+            setUserClass(classData);
+          }
+          
+          // Load all classes
+          const allClasses = await getAllClasses();
+          setClasses(allClasses);
         } catch (error) {
           console.error("Error fetching user data:", error);
         }
@@ -68,6 +103,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserData(null);
         setIsAdmin(false);
         setIsVerified(false);
+        setUserClass(null);
+        setClasses(null);
       }
       
       setLoading(false);
@@ -82,7 +119,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdmin,
     loading,
     isVerified,
-    refreshUserData
+    refreshUserData,
+    userClass,
+    classes,
+    refreshClasses
   };
 
   return (

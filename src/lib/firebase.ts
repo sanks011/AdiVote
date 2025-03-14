@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, User, onAuthStateChanged, reload } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
 
@@ -174,16 +174,398 @@ export const getUserData = async (uid: string) => {
   }
 };
 
-// Candidate functions
+// Class Management
+export interface Class {
+  id?: string;
+  name: string;
+  description: string;
+  adminId: string;
+  adminName?: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export const createClass = async (className: string, description: string, adminId: string) => {
+  try {
+    const classesRef = collection(db, 'classes');
+    const newClassRef = doc(classesRef);
+    
+    await setDoc(newClassRef, {
+      id: newClassRef.id,
+      name: className,
+      description: description,
+      adminId: adminId,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    });
+    
+    toast.success('Class created successfully');
+    return newClassRef.id;
+  } catch (error) {
+    console.error('Error creating class:', error);
+    toast.error('Failed to create class');
+    return null;
+  }
+};
+
+export const updateClass = async (classId: string, updates: Partial<Class>) => {
+  try {
+    const classRef = doc(db, 'classes', classId);
+    await updateDoc(classRef, {
+      ...updates,
+      updatedAt: Timestamp.now()
+    });
+    
+    toast.success('Class updated successfully');
+    return true;
+  } catch (error) {
+    console.error('Error updating class:', error);
+    toast.error('Failed to update class');
+    return false;
+  }
+};
+
+export const deleteClass = async (classId: string) => {
+  try {
+    // First, remove all users from this class
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('classId', '==', classId));
+    const querySnapshot = await getDocs(q);
+    
+    const batchOps = writeBatch(db);
+    querySnapshot.forEach((userDoc) => {
+      batchOps.update(userDoc.ref, { classId: null });
+    });
+    
+    // Delete the class
+    const classRef = doc(db, 'classes', classId);
+    batchOps.delete(classRef);
+    
+    await batchOps.commit();
+    toast.success('Class deleted successfully');
+    return true;
+  } catch (error) {
+    console.error('Error deleting class:', error);
+    toast.error('Failed to delete class');
+    return false;
+  }
+};
+
+export const getAllClasses = async () => {
+  try {
+    const classesRef = collection(db, 'classes');
+    const q = query(classesRef, orderBy('name'));
+    const querySnapshot = await getDocs(q);
+    
+    const classes = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Class[];
+    
+    // Add admin names
+    for (const classItem of classes) {
+      if (classItem.adminId) {
+        const adminData = await getUserData(classItem.adminId);
+        classItem.adminName = adminData?.displayName || 'Unknown';
+      }
+    }
+    
+    return classes;
+  } catch (error) {
+    console.error('Error getting classes:', error);
+    return [];
+  }
+};
+
+export const getClassById = async (classId: string) => {
+  try {
+    const classRef = doc(db, 'classes', classId);
+    const classSnap = await getDoc(classRef);
+    
+    if (classSnap.exists()) {
+      return { id: classSnap.id, ...classSnap.data() } as Class;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting class:', error);
+    return null;
+  }
+};
+
+export const getClassUsers = async (classId: string) => {
+  try {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('classId', '==', classId));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error getting class users:', error);
+    return [];
+  }
+};
+
+export const addUserToClass = async (userId: string, classId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      classId: classId,
+      updatedAt: Timestamp.now()
+    });
+    
+    toast.success('User added to class successfully');
+    return true;
+  } catch (error) {
+    console.error('Error adding user to class:', error);
+    toast.error('Failed to add user to class');
+    return false;
+  }
+};
+
+export const removeUserFromClass = async (userId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      classId: null,
+      updatedAt: Timestamp.now()
+    });
+    
+    toast.success('User removed from class successfully');
+    return true;
+  } catch (error) {
+    console.error('Error removing user from class:', error);
+    toast.error('Failed to remove user from class');
+    return false;
+  }
+};
+
+// Class request functionality
+export interface ClassRequest {
+  id?: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  classId: string;
+  className?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestDate: Timestamp;
+  responseDate?: Timestamp;
+}
+
+export const requestToJoinClass = async (userId: string, classId: string) => {
+  try {
+    // Check if user already has a pending request for this class
+    const requestsRef = collection(db, 'classRequests');
+    const q = query(
+      requestsRef, 
+      where('userId', '==', userId),
+      where('classId', '==', classId),
+      where('status', '==', 'pending')
+    );
+    
+    const existingRequests = await getDocs(q);
+    if (!existingRequests.empty) {
+      toast.info('You already have a pending request for this class');
+      return null;
+    }
+    
+    // Check if user is already in a class
+    const userData = await getUserData(userId);
+    if (userData?.classId) {
+      toast.error('You are already assigned to a class');
+      return null;
+    }
+    
+    // Create the request
+    const newRequestRef = doc(collection(db, 'classRequests'));
+    const request: ClassRequest = {
+      id: newRequestRef.id,
+      userId,
+      classId,
+      status: 'pending',
+      requestDate: Timestamp.now()
+    };
+    
+    await setDoc(newRequestRef, request);
+    toast.success('Class join request sent successfully');
+    return newRequestRef.id;
+  } catch (error) {
+    console.error('Error requesting to join class:', error);
+    toast.error('Failed to send class join request');
+    return null;
+  }
+};
+
+export const getClassRequests = async (classId: string) => {
+  try {
+    const requestsRef = collection(db, 'classRequests');
+    const q = query(
+      requestsRef,
+      where('classId', '==', classId),
+      where('status', '==', 'pending'),
+      orderBy('requestDate', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const requests = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as ClassRequest[];
+    
+    // Add user details
+    for (const request of requests) {
+      if (request.userId) {
+        const userData = await getUserData(request.userId);
+        request.userName = userData?.displayName || userData?.email?.split('@')[0] || 'Unknown';
+        request.userEmail = userData?.email;
+      }
+    }
+    
+    return requests;
+  } catch (error) {
+    console.error('Error getting class requests:', error);
+    return [];
+  }
+};
+
+export const getUserClassRequests = async (userId: string) => {
+  try {
+    const requestsRef = collection(db, 'classRequests');
+    const q = query(requestsRef, where('userId', '==', userId), orderBy('requestDate', 'desc'));
+    
+    const querySnapshot = await getDocs(q);
+    const requests = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as ClassRequest[];
+    
+    // Add class details
+    for (const request of requests) {
+      if (request.classId) {
+        const classData = await getClassById(request.classId);
+        request.className = classData?.name || 'Unknown';
+      }
+    }
+    
+    return requests;
+  } catch (error) {
+    console.error('Error getting user class requests:', error);
+    return [];
+  }
+};
+
+export const approveClassRequest = async (requestId: string) => {
+  try {
+    const requestRef = doc(db, 'classRequests', requestId);
+    const requestSnap = await getDoc(requestRef);
+    
+    if (!requestSnap.exists()) {
+      toast.error('Request not found');
+      return false;
+    }
+    
+    const requestData = requestSnap.data() as ClassRequest;
+    
+    // Add user to class
+    await addUserToClass(requestData.userId, requestData.classId);
+    
+    // Update request status
+    await updateDoc(requestRef, {
+      status: 'approved',
+      responseDate: Timestamp.now()
+    });
+    
+    toast.success('Class request approved');
+    return true;
+  } catch (error) {
+    console.error('Error approving class request:', error);
+    toast.error('Failed to approve class request');
+    return false;
+  }
+};
+
+export const rejectClassRequest = async (requestId: string) => {
+  try {
+    const requestRef = doc(db, 'classRequests', requestId);
+    
+    await updateDoc(requestRef, {
+      status: 'rejected',
+      responseDate: Timestamp.now()
+    });
+    
+    toast.success('Class request rejected');
+    return true;
+  } catch (error) {
+    console.error('Error rejecting class request:', error);
+    toast.error('Failed to reject class request');
+    return false;
+  }
+};
+
+// Candidate management
+export const updateCandidate = async (candidateId: string, updates: Partial<Candidate>) => {
+  try {
+    const candidateRef = doc(db, 'candidates', candidateId);
+    await updateDoc(candidateRef, {
+      ...updates,
+      updatedAt: Timestamp.now()
+    });
+    
+    toast.success('Candidate updated successfully');
+    return true;
+  } catch (error) {
+    console.error('Error updating candidate:', error);
+    toast.error('Failed to update candidate');
+    return false;
+  }
+};
+
+export const deleteCandidate = async (candidateId: string) => {
+  try {
+    const candidateRef = doc(db, 'candidates', candidateId);
+    await deleteDoc(candidateRef);
+    
+    toast.success('Candidate deleted successfully');
+    return true;
+  } catch (error) {
+    console.error('Error deleting candidate:', error);
+    toast.error('Failed to delete candidate');
+    return false;
+  }
+};
+
+export const getAllCandidates = async () => {
+  try {
+    const candidatesRef = collection(db, 'candidates');
+    const q = query(candidatesRef, orderBy('name'));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Candidate[];
+  } catch (error) {
+    console.error('Error getting candidates:', error);
+    return [];
+  }
+};
+
+// Update the candidate interface to include classId
 export interface Candidate {
   id?: string;
   name: string;
   bio: string;
   photoURL: string;
   position: string;
+  classId?: string;
   votes?: number;
 }
 
+// Update candidate functions to support classId
 export const addCandidate = async (candidate: Candidate) => {
   try {
     const candidatesRef = collection(db, 'candidates');
@@ -203,39 +585,11 @@ export const addCandidate = async (candidate: Candidate) => {
   }
 };
 
-export const updateCandidate = async (id: string, candidate: Partial<Candidate>) => {
-  try {
-    const candidateRef = doc(db, 'candidates', id);
-    await updateDoc(candidateRef, {
-      ...candidate,
-      updatedAt: Timestamp.now()
-    });
-    toast.success('Candidate updated successfully');
-    return true;
-  } catch (error) {
-    console.error('Error updating candidate: ', error);
-    toast.error('Failed to update candidate');
-    return false;
-  }
-};
-
-export const deleteCandidate = async (id: string) => {
-  try {
-    const candidateRef = doc(db, 'candidates', id);
-    await deleteDoc(candidateRef);
-    toast.success('Candidate deleted successfully');
-    return true;
-  } catch (error) {
-    console.error('Error deleting candidate: ', error);
-    toast.error('Failed to delete candidate');
-    return false;
-  }
-};
-
-export const getAllCandidates = async () => {
+// Update to get candidates for a specific class
+export const getClassCandidates = async (classId: string) => {
   try {
     const candidatesRef = collection(db, 'candidates');
-    const q = query(candidatesRef, orderBy('name'));
+    const q = query(candidatesRef, where('classId', '==', classId), orderBy('name'));
     const querySnapshot = await getDocs(q);
     
     return querySnapshot.docs.map(doc => ({
@@ -243,13 +597,13 @@ export const getAllCandidates = async () => {
       ...doc.data()
     })) as Candidate[];
   } catch (error) {
-    console.error('Error getting candidates: ', error);
+    console.error('Error getting class candidates:', error);
     return [];
   }
 };
 
-// Voting functions
-export const castVote = async (userId: string, candidateId: string) => {
+// Update voting functions to include classId
+export const castVote = async (userId: string, candidateId: string, classId: string) => {
   try {
     // Check if user has already voted
     const userRef = doc(db, 'users', userId);
@@ -269,11 +623,18 @@ export const castVote = async (userId: string, candidateId: string) => {
       return false;
     }
     
+    // Check if user belongs to the class
+    if (userSnap.exists() && userSnap.data().classId !== classId) {
+      toast.error('You can only vote in your assigned class');
+      return false;
+    }
+    
     // Create vote record
     const votesRef = collection(db, 'votes');
     await setDoc(doc(votesRef), {
       userId,
       candidateId,
+      classId,
       timestamp: Timestamp.now()
     });
     

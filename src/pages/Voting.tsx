@@ -1,224 +1,232 @@
-"use client"
 
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import { useAuth } from "../contexts/AuthContext"
-import { getAllCandidates, getElectionSettings, castVote, type Candidate } from "../lib/firebase"
-import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { AlertCircle, CheckCircle, Loader2, Vote, Info } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import CandidateCard from "../components/CandidateCard"
-import { toast } from "sonner"
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { getClassCandidates, getElectionSettings, castVote, Candidate } from '../lib/firebase';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { AlertCircle, CheckCircle, Loader2, Vote } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import CandidateCard from '../components/CandidateCard';
+import { toast } from 'sonner';
 
 const Voting = () => {
-  const { currentUser, userData } = useAuth()
-  const navigate = useNavigate()
-
-  const [candidates, setCandidates] = useState<Candidate[]>([])
-  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null)
-  const [settings, setSettings] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState("")
-  const [totalVotes, setTotalVotes] = useState(0)
-
+  const { currentUser, userData, userClass } = useAuth();
+  const navigate = useNavigate();
+  
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+  const [settings, setSettings] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [totalVotes, setTotalVotes] = useState(0);
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true)
-        const [candidatesList, electionSettings] = await Promise.all([getAllCandidates(), getElectionSettings()])
-
-        setCandidates(candidatesList)
-        setSettings(electionSettings)
-
+        setLoading(true);
+        
+        if (!userData?.classId) {
+          setError('You need to select a class before voting');
+          setLoading(false);
+          return;
+        }
+        
+        const [candidatesList, electionSettings] = await Promise.all([
+          getClassCandidates(userData.classId),
+          getElectionSettings()
+        ]);
+        
+        setCandidates(candidatesList);
+        setSettings(electionSettings);
+        
         // Calculate total votes
-        let votes = 0
-        candidatesList.forEach((candidate) => {
+        let votes = 0;
+        candidatesList.forEach(candidate => {
           if (candidate.votes) {
-            votes += candidate.votes
+            votes += candidate.votes;
           }
-        })
-        setTotalVotes(votes)
-
+        });
+        setTotalVotes(votes);
+        
         // If user has already voted, select that candidate
         if (userData?.hasVoted && userData?.votedFor) {
-          setSelectedCandidate(userData.votedFor)
+          setSelectedCandidate(userData.votedFor);
         }
       } catch (err) {
-        setError("Failed to load candidates")
-        console.error(err)
+        setError('Failed to load candidates');
+        console.error(err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-
-    fetchData()
-  }, [userData])
-
+    };
+    
+    fetchData();
+  }, [userData]);
+  
   const handleCastVote = async () => {
     if (!selectedCandidate) {
-      toast.error("Please select a candidate")
-      return
+      toast.error('Please select a candidate');
+      return;
     }
-
+    
     try {
-      setSubmitting(true)
-
+      setSubmitting(true);
+      
       if (!currentUser) {
-        throw new Error("You must be logged in to vote")
+        throw new Error('You must be logged in to vote');
       }
-
-      const success = await castVote(currentUser.uid, selectedCandidate)
-
+      
+      if (!userData?.classId) {
+        throw new Error('You need to select a class before voting');
+      }
+      
+      const success = await castVote(currentUser.uid, selectedCandidate, userData.classId);
+      
       if (success) {
-        toast.success("Your vote has been cast successfully")
+        toast.success('Your vote has been cast successfully');
         // Navigate to results page if results are visible, otherwise stay on voting page
         if (settings?.resultsVisible) {
-          navigate("/results")
+          navigate('/results');
         }
       }
     } catch (err: any) {
-      setError(err.message || "Failed to cast vote")
+      setError(err.message || 'Failed to cast vote');
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-gradient-to-b from-background to-background/50">
-        <div className="text-center animate-fade-in">
-          <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" />
-          <h3 className="text-2xl font-medium text-primary">Loading candidates...</h3>
-          <p className="text-muted-foreground mt-2">Please wait while we fetch the election data</p>
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <h3 className="text-xl font-medium">Loading candidates...</h3>
         </div>
       </div>
-    )
+    );
   }
 
   if (!settings?.votingEnabled && !userData?.hasVoted) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-gradient-to-b from-background to-background/50">
-        <div className="w-full max-w-lg animate-fade-in-up">
-          <Card className="border-2 border-primary/10 shadow-lg">
-            <CardHeader className="pb-4">
-              <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                <Info className="h-8 w-8 text-primary" />
-              </div>
-              <CardTitle className="text-2xl text-center">Voting Not Available</CardTitle>
-              <CardDescription className="text-center text-base mt-2">
-                The voting period has not started yet or has ended.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center pb-8">
-              <p className="mb-6 text-muted-foreground">
-                Please check back later or contact the election administrator.
-              </p>
-              <Button onClick={() => navigate("/")} size="lg" className="px-8 transition-all hover:shadow-md">
-                Return to Home
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <Card className="max-w-lg w-full">
+          <CardHeader>
+            <CardTitle className="text-2xl text-center">Voting Not Available</CardTitle>
+            <CardDescription className="text-center">
+              The voting period has not started yet or has ended.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="mb-6">Please check back later or contact the election administrator.</p>
+            <Button onClick={() => navigate('/')}>Return to Home</Button>
+          </CardContent>
+        </Card>
       </div>
-    )
+    );
   }
 
-  const selectedCandidateData = candidates.find((c) => c.id === selectedCandidate)
+  if (!userClass) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <Card className="max-w-lg w-full">
+          <CardHeader>
+            <CardTitle className="text-2xl text-center">No Class Selected</CardTitle>
+            <CardDescription className="text-center">
+              You need to be assigned to a class before you can vote.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="mb-6">Please contact your administrator to be assigned to a class.</p>
+            <Button onClick={() => navigate('/')}>Return to Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-      <div className="text-center mb-10 animate-fade-in-down">
-        <div className="inline-block p-3 bg-primary/10 rounded-full mb-5">
-          <Vote size={36} className="text-primary" />
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-10">
+      <div className="text-center mb-6 md:mb-8 animate-slide-down">
+        <div className="inline-block p-2 bg-primary/10 rounded-full mb-4">
+          <Vote size={28} className="text-primary" />
         </div>
-        <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-          {userData?.hasVoted ? "Thank You for Voting" : "Cast Your Vote"}
-        </h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+        <h1 className="text-2xl md:text-3xl font-bold mb-2 md:mb-4">Cast Your Vote</h1>
+        <p className="text-sm md:text-base text-gray-600 max-w-2xl mx-auto">
           {userData?.hasVoted
-            ? "You have already cast your vote. Thank you for participating in this election!"
-            : "Select your preferred candidate for the Class Representative position. Your vote matters and can only be cast once."}
+            ? 'You have already cast your vote. Thank you for participating!'
+            : 'Select your preferred candidate for the Class Representative position. You can only vote once.'}
         </p>
       </div>
-
+      
       {error && (
-        <div className="animate-fade-in">
-          <Alert variant="destructive" className="mb-6 max-w-2xl mx-auto border-2">
-            <AlertCircle className="h-5 w-5" />
-            <AlertTitle className="ml-2">Error</AlertTitle>
-            <AlertDescription className="ml-2">{error}</AlertDescription>
-          </Alert>
-        </div>
+        <Alert variant="destructive" className="mb-4 md:mb-6 max-w-2xl mx-auto">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
-
+      
       {userData?.hasVoted && !settings?.resultsVisible && (
-        <div className="animate-fade-in">
-          <Alert className="mb-6 max-w-2xl mx-auto border-2 border-primary/20 bg-primary/5">
-            <CheckCircle className="h-5 w-5 text-primary" />
-            <AlertTitle className="ml-2">Vote Recorded</AlertTitle>
-            <AlertDescription className="ml-2">
-              Your vote has been recorded successfully. Results will be available once the voting period ends.
-            </AlertDescription>
-          </Alert>
-        </div>
+        <Alert className="mb-4 md:mb-6 max-w-2xl mx-auto">
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>
+            Your vote has been recorded. Results will be available once the voting period ends.
+          </AlertDescription>
+        </Alert>
       )}
-
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10 animate-fade-in">
-        {candidates.map((candidate, index) => (
-          <div key={candidate.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 100}ms` }}>
-            <CandidateCard
-              candidate={candidate}
-              selectedCandidate={selectedCandidate}
-              onSelect={setSelectedCandidate}
-              hasVoted={userData?.hasVoted}
-              votingEnabled={settings?.votingEnabled}
-              showResults={settings?.resultsVisible}
-              totalVotes={totalVotes}
-            />
-          </div>
-        ))}
-      </div>
-
-      {!userData?.hasVoted && settings?.votingEnabled && (
-        <div className="max-w-md mx-auto animate-fade-in-up" style={{ animationDelay: "400ms" }}>
-          <Card className="border-2 border-primary/20 shadow-md p-4">
-            <CardContent className="p-0">
-              {selectedCandidateData && (
-                <div className="mb-4 p-3 bg-primary/5 rounded-lg">
-                  <p className="text-center font-medium">
-                    You are voting for: <span className="text-primary">{selectedCandidateData.name}</span>
-                  </p>
-                </div>
-              )}
-
-              <Button
-                className="w-full h-12 text-lg font-medium transition-all"
-                size="lg"
-                onClick={handleCastVote}
-                disabled={!selectedCandidate || submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Submitting your vote...
-                  </>
-                ) : (
-                  "Cast Your Vote"
-                )}
-              </Button>
-
-              <p className="text-sm text-muted-foreground text-center mt-4">
-                Note: You can only vote once and cannot change your vote after submission.
-              </p>
+      
+      {userClass && (
+        <div className="mb-6">
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="pt-6">
+              <h2 className="text-lg font-medium mb-2">Voting in: {userClass.name}</h2>
+              <p className="text-sm text-gray-500">{userClass.description || 'Class election'}</p>
             </CardContent>
           </Card>
+        </div>
+      )}
+      
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 md:mb-8">
+        {candidates.map((candidate) => (
+          <CandidateCard
+            key={candidate.id}
+            candidate={candidate}
+            selectedCandidate={selectedCandidate}
+            onSelect={setSelectedCandidate}
+            hasVoted={userData?.hasVoted}
+            votingEnabled={settings?.votingEnabled}
+            showResults={settings?.resultsVisible}
+            totalVotes={totalVotes}
+          />
+        ))}
+      </div>
+      
+      {!userData?.hasVoted && settings?.votingEnabled && (
+        <div className="max-w-md mx-auto">
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleCastVote}
+            disabled={!selectedCandidate || submitting}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting your vote...
+              </>
+            ) : (
+              'Cast Vote'
+            )}
+          </Button>
+          <p className="text-xs md:text-sm text-gray-500 text-center mt-4">
+            Note: You can only vote once and cannot change your vote after submission.
+          </p>
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default Voting
-
+export default Voting;

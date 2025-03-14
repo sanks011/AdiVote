@@ -1,111 +1,114 @@
 
 import React, { useState } from 'react';
+import { Upload, X, Image as ImageIcon, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Upload, Image as ImageIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import { uploadImage } from '@/lib/firebase';
 
-interface ImageUploadProps {
+export interface ImageUploadProps {
+  folderPath: string;
   onImageUploaded: (url: string) => void;
-  currentImage?: string;
 }
 
-const ImageUpload = ({ onImageUploaded, currentImage }: ImageUploadProps) => {
+const ImageUpload: React.FC<ImageUploadProps> = ({ folderPath, onImageUploaded }) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(currentImage || null);
-
-  const uploadToCloudinary = async (file: File) => {
-    setUploading(true);
+  const [uploadComplete, setUploadComplete] = useState(false);
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreview(URL.createObjectURL(file));
+      setUploadComplete(false);
+    }
+  };
+  
+  const handleUpload = async () => {
+    if (!selectedFile) return;
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'election_candidates');
-      formData.append('cloud_name', import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dkrlsysdg');
+      setUploading(true);
+      const path = `${folderPath}/${Date.now()}_${selectedFile.name}`;
+      const url = await uploadImage(selectedFile, path);
       
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dkrlsysdg'}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to upload image');
+      if (url) {
+        onImageUploaded(url);
+        setUploadComplete(true);
       }
-      
-      const data = await response.json();
-      setPreview(data.secure_url);
-      onImageUploaded(data.secure_url);
-      toast.success('Image uploaded successfully');
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
     } finally {
       setUploading(false);
     }
   };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Create a preview
-      const objectUrl = URL.createObjectURL(file);
-      setPreview(objectUrl);
-      
-      // Upload to Cloudinary
-      uploadToCloudinary(file);
-      
-      // Clean up the object URL
-      return () => URL.revokeObjectURL(objectUrl);
-    }
+  
+  const handleRemove = () => {
+    setSelectedFile(null);
+    setPreview(null);
+    setUploadComplete(false);
   };
-
+  
   return (
     <div className="space-y-4">
-      {preview ? (
-        <div className="relative w-32 h-32 mx-auto rounded-full overflow-hidden border-2 border-gray-200">
-          <img 
-            src={preview} 
-            alt="Candidate preview" 
-            className="w-full h-full object-cover"
-            onError={() => setPreview('/placeholder.svg')}
-          />
+      {!preview ? (
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+          <label className="cursor-pointer flex flex-col items-center justify-center gap-2">
+            <ImageIcon className="h-10 w-10 text-gray-400" />
+            <span className="text-sm font-medium">Click to select an image</span>
+            <span className="text-xs text-gray-500">PNG, JPG up to 2MB</span>
+            <input
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+          </label>
         </div>
       ) : (
-        <div className="w-32 h-32 mx-auto rounded-full bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-200">
-          <ImageIcon className="h-12 w-12 text-gray-400" />
+        <div className="border rounded-lg overflow-hidden">
+          <div className="relative aspect-video bg-gray-100">
+            <img
+              src={preview}
+              alt="Preview"
+              className="w-full h-full object-contain"
+            />
+            <button
+              onClick={handleRemove}
+              className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm"
+            >
+              <X className="h-4 w-4 text-gray-700" />
+            </button>
+          </div>
+          <div className="p-3 bg-gray-50 border-t flex justify-end">
+            {uploadComplete ? (
+              <Button variant="outline" size="sm" className="text-green-600" disabled>
+                <Check className="h-4 w-4 mr-1" />
+                Uploaded
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleUpload} 
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <>
+                    <span className="animate-spin h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-1" />
+                    Upload
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       )}
-      
-      <div className="flex justify-center">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => document.getElementById('imageUpload')?.click()}
-          disabled={uploading}
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Uploading...
-            </>
-          ) : (
-            <>
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Photo
-            </>
-          )}
-        </Button>
-        <input
-          id="imageUpload"
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileChange}
-          disabled={uploading}
-        />
-      </div>
     </div>
   );
 };
