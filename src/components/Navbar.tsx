@@ -17,8 +17,19 @@ import { useMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 
+interface UserData {
+  displayName?: string;
+  email?: string;
+  photoURL?: string;
+}
+
+interface ClassData {
+  name: string;
+  // Add other class properties as needed
+}
+
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: any | null;
   userData: UserData | null;
   isAdmin: boolean;
   loading: boolean;
@@ -243,33 +254,27 @@ const Navbar = () => {
                 <Skeleton className="h-10 w-10 rounded-full" />
               ) : currentUser ? (
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <motion.div 
-                      whileHover={{ scale: 1.05 }} 
-                      whileTap={{ scale: 0.95 }}
-                      className="relative"
-                    >
-                      <Button variant="ghost" className="relative rounded-full h-10 w-10 p-0 hover:bg-[#F3F6F8]">
-                        <motion.div
-                          className="absolute -inset-1 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-full blur"
-                          animate={{
-                            scale: [1, 1.2, 1],
-                            opacity: [0.3, 0.5, 0.3],
-                          }}
-                          transition={{
-                            duration: 3,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                          }}
-                        />
-                        <Avatar>
-                          <AvatarImage src={userData?.photoURL || ''} alt={userData?.displayName || ''} />
-                          <AvatarFallback className="bg-[#33CC33]/10 text-[#33CC33]">
-                            {(userData?.displayName?.charAt(0) || userData?.email?.charAt(0) || 'U').toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </motion.div>
+                  <DropdownMenuTrigger>
+                    <Button variant="ghost" className="relative rounded-full h-10 w-10 p-0 hover:bg-[#F3F6F8]">
+                      <motion.div
+                        className="absolute -inset-1 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-full blur"
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.3, 0.5, 0.3],
+                        }}
+                        transition={{
+                          duration: 3,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      />
+                      <Avatar>
+                        <AvatarImage src={userData?.photoURL || ''} alt={userData?.displayName || ''} />
+                        <AvatarFallback className="bg-[#33CC33]/10 text-[#33CC33]">
+                          {(userData?.displayName?.charAt(0) || userData?.email?.charAt(0) || 'U').toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 border-[#33CC33]/20 shadow-lg backdrop-blur-lg bg-white/90">
                     <DropdownMenuLabel className="flex flex-col">
@@ -320,11 +325,9 @@ const Navbar = () => {
                   whileTap={{ scale: 0.95 }}
                 >
                   <Button 
-                    asChild 
-                    size="sm" 
-                    className="bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white shadow-lg shadow-[#33CC33]/20 px-4 py-2 rounded-lg"
+                    className="w-full bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white shadow-lg shadow-[#33CC33]/20"
                   >
-                    <Link to="/verification" className="flex items-center gap-2">
+                    <Link to="/verification" className="flex justify-center items-center gap-2">
                       <LogIn className="h-4 w-4" />
                       Login
                     </Link>
@@ -453,7 +456,6 @@ const Navbar = () => {
                     whileTap={{ scale: 0.98 }}
                   >
                     <Button 
-                      asChild 
                       className="w-full bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white shadow-lg shadow-[#33CC33]/20"
                     >
                       <Link to="/verification" className="flex justify-center items-center gap-2">
