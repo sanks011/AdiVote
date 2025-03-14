@@ -43,101 +43,66 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
-    
-    // Hover animation variants
-    const hoverAnimation = {
-      rest: { scale: 1 },
-      hover: { scale: 1.02 },
-      tap: { scale: 0.98 }
-    }
+    const Comp = asChild ? Slot : "button";
 
-    // Ripple effect component
-    const Ripple = () => {
-      const [ripples, setRipples] = React.useState<Array<{ x: number; y: number; id: number }>>([])
+    // State to store ripple positions
+    const [ripples, setRipples] = React.useState<Array<{ x: number; y: number; id: number }>>([]);
 
-      const addRipple = (event: React.MouseEvent) => {
-        const button = event.currentTarget as HTMLButtonElement
-        const rect = button.getBoundingClientRect()
-        const x = event.clientX - rect.left
-        const y = event.clientY - rect.top
+    // Function to add a ripple effect
+    const addRipple = (event: React.MouseEvent) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      const rect = button.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
 
-        setRipples([...ripples, { x, y, id: Date.now() }])
-      }
+      setRipples((prev) => [...prev, { x, y, id: Date.now() }]);
 
-      React.useEffect(() => {
-        const timeouts = ripples.map((ripple) =>
-          setTimeout(() => {
-            setRipples((prevRipples) =>
-              prevRipples.filter((r) => r.id !== ripple.id)
-            )
-          }, 1000)
-        )
-
-        return () => {
-          timeouts.forEach((timeout) => clearTimeout(timeout))
-        }
-      }, [ripples])
-
-      return (
-        <>
-          {ripples.map((ripple) => (
-            <motion.span
-              key={ripple.id}
-              initial={{ scale: 0, opacity: 0.5 }}
-              animate={{ scale: 2, opacity: 0 }}
-              transition={{ duration: 1 }}
-              style={{
-                position: "absolute",
-                left: ripple.x,
-                top: ripple.y,
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                backgroundColor: "rgba(255, 255, 255, 0.5)",
-                transform: "translate(-50%, -50%)",
-                pointerEvents: "none"
-              }}
-            />
-          ))}
-        </>
-      )
-    }
+      // Remove ripple after animation
+      setTimeout(() => {
+        setRipples((prev) => prev.filter((r) => r.id !== Date.now()));
+      }, 1000);
+    };
 
     return (
-      <motion.div
-        initial="rest"
-        whileHover="hover"
-        whileTap="tap"
-        variants={hoverAnimation}
-        style={{ display: "inline-block" }}
-      >
+      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ display: "inline-block" }}>
         <Comp
           className={cn(buttonVariants({ variant, size, className }))}
           ref={ref}
-          onClick={(e: React.MouseEvent) => {
-            if (props.onClick) {
-              props.onClick(e)
-            }
-            const button = e.currentTarget as HTMLButtonElement
-            const ripple = button.querySelector(".ripple-container")
-            if (ripple) {
-              (ripple as any).addRipple(e)
-            }
+          onClick={(e) => {
+            if (props.onClick) props.onClick(e);
+            addRipple(e);
           }}
           {...props}
         >
-          <span className="relative z-10 flex items-center justify-center gap-2">
-            {props.children}
-          </span>
-          <div className="ripple-container absolute inset-0 overflow-hidden">
-            <Ripple />
+          <span className="relative z-10 flex items-center justify-center gap-2">{props.children}</span>
+          {/* Ripple Container */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {ripples.map((ripple) => (
+              <motion.span
+                key={ripple.id}
+                initial={{ scale: 0, opacity: 0.5 }}
+                animate={{ scale: 2, opacity: 0 }}
+                transition={{ duration: 1 }}
+                style={{
+                  position: "absolute",
+                  left: ripple.x,
+                  top: ripple.y,
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(255, 255, 255, 0.5)",
+                  transform: "translate(-50%, -50%)",
+                  pointerEvents: "none",
+                }}
+              />
+            ))}
           </div>
         </Comp>
       </motion.div>
-    )
+    );
   }
-)
+);
+
 Button.displayName = "Button"
 
 export { Button, buttonVariants }
