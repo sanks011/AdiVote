@@ -5,6 +5,7 @@ import { Users, Vote, CheckCircle, Timer } from 'lucide-react';
 import { collection, getDocs, query, where, getCountFromServer, Timestamp } from 'firebase/firestore';
 import { db, getElectionSettings } from '../../lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
+import ClassSelector from '../AdminComponents/ClassSelector';
 
 const Dashboard = () => {
   const [totalVoters, setTotalVoters] = useState<number | null>(null);
@@ -12,19 +13,34 @@ const Dashboard = () => {
   const [votingStatus, setVotingStatus] = useState<string>('Loading...');
   const [timeRemaining, setTimeRemaining] = useState<string>('--:--:--');
   const [loading, setLoading] = useState(true);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         // Get total registered users (excluding admins)
         const usersRef = collection(db, 'users');
-        const usersQuery = query(usersRef, where('isAdmin', '==', false));
+        let usersQuery = query(usersRef, where('isAdmin', '==', false));
+        
+        // Add class filter if a class is selected
+        if (selectedClassId) {
+          usersQuery = query(usersQuery, where('classId', '==', selectedClassId));
+        }
+        
         const usersSnapshot = await getCountFromServer(usersQuery);
         setTotalVoters(usersSnapshot.data().count);
         
         // Get total votes cast
         const votesRef = collection(db, 'votes');
-        const votesSnapshot = await getCountFromServer(votesRef);
+        let votesQuery = query(votesRef);
+        
+        // Add class filter if a class is selected
+        if (selectedClassId) {
+          votesQuery = query(votesQuery, where('classId', '==', selectedClassId));
+        }
+        
+        const votesSnapshot = await getCountFromServer(votesQuery);
         setVotesCast(votesSnapshot.data().count);
         
         // Get voting status from settings
@@ -68,7 +84,7 @@ const Dashboard = () => {
     };
     
     fetchData();
-  }, []);
+  }, [selectedClassId]);
 
   const renderValue = (value: any, isLoading: boolean) => {
     if (isLoading) {
@@ -78,46 +94,62 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Voters</CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground ml-auto" />
-        </CardHeader>
-        <CardContent>
-          {renderValue(totalVoters ?? 0, loading)}
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Votes Cast</CardTitle>
-          <Vote className="h-4 w-4 text-muted-foreground ml-auto" />
-        </CardHeader>
-        <CardContent>
-          {renderValue(votesCast ?? 0, loading)}
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Voting Status</CardTitle>
-          <CheckCircle className="h-4 w-4 text-muted-foreground ml-auto" />
-        </CardHeader>
-        <CardContent>
-          {renderValue(votingStatus, loading)}
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Time Remaining</CardTitle>
-          <Timer className="h-4 w-4 text-muted-foreground ml-auto" />
-        </CardHeader>
-        <CardContent>
-          {renderValue(timeRemaining, loading)}
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Dashboard Overview</h2>
+        <ClassSelector 
+          selectedClassId={selectedClassId} 
+          setSelectedClassId={setSelectedClassId} 
+        />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+          <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Voters</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground ml-auto" />
+          </CardHeader>
+          <CardContent>
+            {renderValue(totalVoters ?? 0, loading)}
+            <p className="text-xs text-gray-500 mt-1">
+              {selectedClassId ? "In selected class" : "Across all classes"}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+          <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Votes Cast</CardTitle>
+            <Vote className="h-4 w-4 text-muted-foreground ml-auto" />
+          </CardHeader>
+          <CardContent>
+            {renderValue(votesCast ?? 0, loading)}
+            <p className="text-xs text-gray-500 mt-1">
+              {selectedClassId ? "In selected class" : "Across all classes"}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+          <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Voting Status</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground ml-auto" />
+          </CardHeader>
+          <CardContent>
+            {renderValue(votingStatus, loading)}
+          </CardContent>
+        </Card>
+        
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+          <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Time Remaining</CardTitle>
+            <Timer className="h-4 w-4 text-muted-foreground ml-auto" />
+          </CardHeader>
+          <CardContent>
+            {renderValue(timeRemaining, loading)}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

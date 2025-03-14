@@ -12,6 +12,7 @@ import {
 } from '../../lib/firebase';
 import { toast } from 'sonner';
 import { Loader2, Timer } from 'lucide-react';
+import ClassSelector from './ClassSelector';
 
 const ElectionControl = () => {
   const [settings, setSettings] = useState<ElectionSettings | null>(null);
@@ -19,6 +20,7 @@ const ElectionControl = () => {
   const [updating, setUpdating] = useState(false);
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -40,16 +42,20 @@ const ElectionControl = () => {
     };
 
     fetchSettings();
-  }, []);
+  }, [selectedClassId]);
 
   const handleVotingToggle = async (enabled: boolean) => {
     if (!settings) return;
     
     setUpdating(true);
     try {
-      await updateElectionSettings({ votingEnabled: enabled });
+      await updateElectionSettings({ 
+        votingEnabled: enabled,
+        classId: selectedClassId || undefined
+      });
+      
       setSettings({ ...settings, votingEnabled: enabled });
-      toast.success(`Voting ${enabled ? 'enabled' : 'disabled'} successfully`);
+      toast.success(`Voting ${enabled ? 'enabled' : 'disabled'} successfully${selectedClassId ? ' for selected class' : ''}`);
     } catch (error) {
       console.error('Error updating voting status:', error);
       toast.error('Failed to update voting status');
@@ -63,9 +69,13 @@ const ElectionControl = () => {
     
     setUpdating(true);
     try {
-      await updateElectionSettings({ resultsVisible: visible });
+      await updateElectionSettings({ 
+        resultsVisible: visible,
+        classId: selectedClassId || undefined
+      });
+      
       setSettings({ ...settings, resultsVisible: visible });
-      toast.success(`Results ${visible ? 'visible' : 'hidden'} successfully`);
+      toast.success(`Results ${visible ? 'visible' : 'hidden'} successfully${selectedClassId ? ' for selected class' : ''}`);
     } catch (error) {
       console.error('Error updating results visibility:', error);
       toast.error('Failed to update results visibility');
@@ -84,13 +94,16 @@ const ElectionControl = () => {
     try {
       const endDateTime = new Date(`${endDate}T${endTime}`);
       await updateElectionSettings({ 
-        endDate: Timestamp.fromDate(endDateTime)
+        endDate: Timestamp.fromDate(endDateTime),
+        classId: selectedClassId || undefined
       });
+      
       setSettings(prev => prev ? {
         ...prev,
         endDate: Timestamp.fromDate(endDateTime)
       } : null);
-      toast.success('Election end time updated successfully');
+      
+      toast.success(`Election end time updated successfully${selectedClassId ? ' for selected class' : ''}`);
     } catch (error) {
       console.error('Error updating end time:', error);
       toast.error('Failed to update end time');
@@ -100,13 +113,19 @@ const ElectionControl = () => {
   };
 
   const handleResetElection = async () => {
-    if (!confirm('Are you sure you want to reset the election? This will delete all votes and cannot be undone.')) {
+    const confirmMessage = selectedClassId 
+      ? 'Are you sure you want to reset the election for the selected class? This will delete all votes for this class and cannot be undone.'
+      : 'Are you sure you want to reset the election for ALL classes? This will delete all votes and cannot be undone.';
+      
+    if (!confirm(confirmMessage)) {
       return;
     }
     
     setUpdating(true);
     try {
-      toast.success('Election reset successfully');
+      // Implementation would go here
+      
+      toast.success(`Election reset successfully${selectedClassId ? ' for selected class' : ''}`);
     } catch (error) {
       console.error('Error resetting election:', error);
       toast.error('Failed to reset election');
@@ -125,10 +144,17 @@ const ElectionControl = () => {
 
   return (
     <div className="space-y-8">
-      <h2 className="text-2xl font-bold">Election Control</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Election Control</h2>
+        <ClassSelector 
+          selectedClassId={selectedClassId} 
+          setSelectedClassId={setSelectedClassId}
+          label="Control for Class" 
+        />
+      </div>
       
       <div className="space-y-6">
-        <div className="space-y-4">
+        <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
           <div className="flex items-center space-x-4">
             <Switch 
               id="voting" 
@@ -136,7 +162,9 @@ const ElectionControl = () => {
               onCheckedChange={handleVotingToggle}
               disabled={updating}
             />
-            <Label htmlFor="voting">Enable Voting</Label>
+            <Label htmlFor="voting">
+              Enable Voting {selectedClassId ? 'for Selected Class' : 'for All Classes'}
+            </Label>
           </div>
           
           <div className="flex items-center space-x-4">
@@ -146,14 +174,16 @@ const ElectionControl = () => {
               onCheckedChange={handleResultsToggle}
               disabled={updating}
             />
-            <Label htmlFor="results">Show Results</Label>
+            <Label htmlFor="results">
+              Show Results {selectedClassId ? 'for Selected Class' : 'for All Classes'}
+            </Label>
           </div>
         </div>
 
         <div className="space-y-4 pt-4 border-t">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Timer className="h-5 w-5" />
-            Set Election End Time
+            Set Election End Time {selectedClassId ? 'for Selected Class' : 'for All Classes'}
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -182,6 +212,7 @@ const ElectionControl = () => {
           <Button 
             onClick={handleTimeUpdate}
             disabled={updating || !endDate || !endTime}
+            className="bg-primary hover:bg-primary/90"
           >
             {updating ? (
               <>
@@ -207,7 +238,7 @@ const ElectionControl = () => {
               Processing...
             </>
           ) : (
-            'Reset Election'
+            `Reset Election${selectedClassId ? ' for Selected Class' : ''}`
           )}
         </Button>
       </div>

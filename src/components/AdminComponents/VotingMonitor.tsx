@@ -1,12 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { collection, query, orderBy, limit, onSnapshot, Timestamp, getDocs, getDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, Timestamp, getDocs, getDoc, doc, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, CheckCircle, Clock, Users, BarChart, Activity } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import ClassSelector from './ClassSelector';
 
 interface VoteActivity {
   id: string;
@@ -15,6 +16,7 @@ interface VoteActivity {
   timestamp: Timestamp;
   userEmail?: string;
   candidateName?: string;
+  className?: string;
 }
 
 interface VoteStats {
@@ -35,13 +37,29 @@ const VotingMonitor = () => {
     votingRate: 0,
     candidateVotes: []
   });
-
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  
   useEffect(() => {
     // Set up real-time listener for recent votes
     const votesRef = collection(db, 'votes');
-    const q = query(votesRef, orderBy('timestamp', 'desc'), limit(20));
+    let voteQuery;
     
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    if (selectedClassId) {
+      voteQuery = query(
+        votesRef, 
+        where('classId', '==', selectedClassId),
+        orderBy('timestamp', 'desc'), 
+        limit(20)
+      );
+    } else {
+      voteQuery = query(
+        votesRef, 
+        orderBy('timestamp', 'desc'), 
+        limit(20)
+      );
+    }
+    
+    const unsubscribe = onSnapshot(voteQuery, async (snapshot) => {
       const voteData: VoteActivity[] = [];
       
       for (const docSnapshot of snapshot.docs) {
@@ -60,6 +78,14 @@ const VotingMonitor = () => {
           if (candidateDoc.exists()) {
             const candidateData = candidateDoc.data();
             vote.candidateName = candidateData.name;
+            
+            // Get class name
+            if (candidateData.classId) {
+              const classDoc = await getDoc(doc(db, 'classes', candidateData.classId));
+              if (classDoc.exists()) {
+                vote.className = classDoc.data().name;
+              }
+            }
           }
         } catch (err) {
           console.error("Error fetching related data:", err);
@@ -83,12 +109,21 @@ const VotingMonitor = () => {
       unsubscribe();
       clearInterval(statsInterval);
     };
-  }, []);
+  }, [selectedClassId]);
 
   const fetchVoteStats = async () => {
     try {
       // Get all votes
-      const votesSnapshot = await getDocs(collection(db, 'votes'));
+      const votesRef = collection(db, 'votes');
+      let votesQuery;
+      
+      if (selectedClassId) {
+        votesQuery = query(votesRef, where('classId', '==', selectedClassId));
+      } else {
+        votesQuery = votesRef;
+      }
+      
+      const votesSnapshot = await getDocs(votesQuery);
       const totalVotes = votesSnapshot.size;
       
       // Get unique voters
@@ -114,7 +149,16 @@ const VotingMonitor = () => {
       const votingRate = votesLastHour;
       
       // Get votes by candidate
-      const candidatesSnapshot = await getDocs(collection(db, 'candidates'));
+      const candidatesRef = collection(db, 'candidates');
+      let candidatesQuery;
+      
+      if (selectedClassId) {
+        candidatesQuery = query(candidatesRef, where('classId', '==', selectedClassId));
+      } else {
+        candidatesQuery = candidatesRef;
+      }
+      
+      const candidatesSnapshot = await getDocs(candidatesQuery);
       const candidateVotes = candidatesSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -151,11 +195,17 @@ const VotingMonitor = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">Monitor Voting</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Monitor Voting</h2>
+        <ClassSelector 
+          selectedClassId={selectedClassId} 
+          setSelectedClassId={setSelectedClassId} 
+        />
+      </div>
       
       {/* Voting Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -169,7 +219,7 @@ const VotingMonitor = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -183,7 +233,7 @@ const VotingMonitor = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -197,7 +247,7 @@ const VotingMonitor = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -213,11 +263,11 @@ const VotingMonitor = () => {
       </div>
       
       {/* Candidate Vote Distribution */}
-      <Card className="mb-6">
+      <Card className="mb-6 shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <BarChart className="h-5 w-5" />
-            Live Vote Distribution
+            Live Vote Distribution {selectedClassId ? 'for Selected Class' : 'Across All Classes'}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -249,11 +299,11 @@ const VotingMonitor = () => {
       </Card>
       
       {/* Recent Activity Log */}
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            Recent Voting Activity
+            Recent Voting Activity {selectedClassId ? 'in Selected Class' : 'Across All Classes'}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -270,7 +320,7 @@ const VotingMonitor = () => {
               ))}
             </div>
           ) : voteActivity.length > 0 ? (
-            <ScrollArea className="h-[400px]">
+            <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-4">
                 {voteActivity.map((vote) => (
                   <div key={vote.id} className="flex items-start gap-3 border-b border-gray-100 pb-3">
@@ -286,6 +336,9 @@ const VotingMonitor = () => {
                         )}
                         {vote.candidateName && (
                           <> for <span className="text-primary">{vote.candidateName}</span></>
+                        )}
+                        {vote.className && (
+                          <> in <span className="text-gray-500">{vote.className}</span></>
                         )}
                       </p>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
