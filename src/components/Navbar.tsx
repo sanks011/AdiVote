@@ -29,8 +29,20 @@ const Navbar = () => {
   const location = useLocation();
   const { currentUser, userData, isAdmin, logOut, loading, userClass } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const isMobile = useMobile();
+
+  // Handle scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      const offset = window.scrollY;
+      setScrolled(offset > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -62,28 +74,31 @@ const Navbar = () => {
   return (
     <header 
       className={cn(
-        "fixed top-0 left-0 right-0 min-h-[64px] border-b z-50 flex items-center transition-all duration-300",
+        "fixed top-0 left-0 right-0 min-h-[70px] border-b z-50 flex items-center transition-all duration-300",
+        scrolled
+          ? "bg-white/90 backdrop-blur-md shadow-md"
+          : "bg-transparent border-transparent",
         isMenuOpen && isMobile
-          ? "bg-white/60 backdrop-blur-lg"
-          : "bg-white/90 backdrop-blur-md shadow-sm"
+          ? "bg-white/60 backdrop-blur-lg shadow-lg"
+          : ""
       )}
     >
       <div className="container max-w-7xl mx-auto px-4 flex justify-between items-center">
         <Link to="/" className="flex items-center">
-          <span className="font-bold text-xl md:text-2xl text-primary flex items-center">
-            <Vote className="h-6 w-6 mr-2 text-primary" />
+          <span className="font-bold text-xl md:text-2xl text-[#33CC33] flex items-center">
+            <Vote className="h-6 w-6 mr-2 text-[#33CC33]" />
             AdiVote
           </span>
         </Link>
 
         {/* Desktop Navigation */}
         {!isMobile && (
-          <nav className="flex items-center space-x-1">
+          <nav className="flex items-center space-x-2">
             <Link
               to="/"
               className={cn(
-                "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                location.pathname === '/' && "bg-primary text-primary-foreground hover:bg-primary/90"
+                "px-4 py-2 text-sm font-medium rounded-lg hover:bg-[#F3F6F8] transition-colors",
+                location.pathname === '/' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90"
               )}
             >
               Home
@@ -93,8 +108,8 @@ const Navbar = () => {
                 <Link
                   to="/voting"
                   className={cn(
-                    "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                    location.pathname === '/voting' && "bg-primary text-primary-foreground hover:bg-primary/90"
+                    "px-4 py-2 text-sm font-medium rounded-lg hover:bg-[#F3F6F8] transition-colors",
+                    location.pathname === '/voting' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90"
                   )}
                 >
                   Voting
@@ -102,8 +117,8 @@ const Navbar = () => {
                 <Link
                   to="/classes"
                   className={cn(
-                    "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                    location.pathname === '/classes' && "bg-primary text-primary-foreground hover:bg-primary/90"
+                    "px-4 py-2 text-sm font-medium rounded-lg hover:bg-[#F3F6F8] transition-colors",
+                    location.pathname === '/classes' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90"
                   )}
                 >
                   Class Browser
@@ -113,8 +128,8 @@ const Navbar = () => {
             <Link
               to="/results"
               className={cn(
-                "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                location.pathname === '/results' && "bg-primary text-primary-foreground hover:bg-primary/90"
+                "px-4 py-2 text-sm font-medium rounded-lg hover:bg-[#F3F6F8] transition-colors",
+                location.pathname === '/results' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90"
               )}
             >
               Results
@@ -123,8 +138,8 @@ const Navbar = () => {
               <Link
                 to="/admin"
                 className={cn(
-                  "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                  location.pathname.startsWith('/admin') && "bg-primary text-primary-foreground hover:bg-primary/90"
+                  "px-4 py-2 text-sm font-medium rounded-lg hover:bg-[#F3F6F8] transition-colors",
+                  location.pathname.startsWith('/admin') && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90"
                 )}
               >
                 Admin
@@ -141,16 +156,16 @@ const Navbar = () => {
             ) : currentUser ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative rounded-full h-10 w-10 p-0 hover:bg-gray-100 transition-colors">
+                  <Button variant="ghost" className="relative rounded-full h-10 w-10 p-0 hover:bg-[#F3F6F8] transition-colors">
                     <Avatar>
                       <AvatarImage src={userData?.photoURL || ''} alt={userData?.displayName || ''} />
-                      <AvatarFallback className="bg-primary/10 text-primary">
+                      <AvatarFallback className="bg-[#33CC33]/10 text-[#33CC33]">
                         {(userData?.displayName?.charAt(0) || userData?.email?.charAt(0) || 'U').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 border-[#33CC33]/20 shadow-lg">
                   <DropdownMenuLabel className="flex flex-col">
                     <span>{userData?.displayName || userData?.email?.split('@')[0]}</span>
                     <span className="text-xs font-normal text-gray-500 truncate">{userData?.email}</span>
@@ -159,7 +174,7 @@ const Navbar = () => {
                   {userClass && (
                     <>
                       <DropdownMenuItem className="flex items-center">
-                        <School className="mr-2 h-4 w-4" />
+                        <School className="mr-2 h-4 w-4 text-[#33CC33]" />
                         <span className="truncate">{userClass.name}</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -167,13 +182,13 @@ const Navbar = () => {
                   )}
                   <DropdownMenuItem asChild>
                     <Link to="/profile" className="cursor-pointer flex w-full items-center">
-                      <User className="mr-2 h-4 w-4" />
+                      <User className="mr-2 h-4 w-4 text-[#33CC33]" />
                       Profile
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/classes" className="cursor-pointer flex w-full items-center">
-                      <School className="mr-2 h-4 w-4" />
+                      <School className="mr-2 h-4 w-4 text-[#33CC33]" />
                       Class Browser
                     </Link>
                   </DropdownMenuItem>
@@ -185,7 +200,11 @@ const Navbar = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button asChild size="sm" className="shadow-sm">
+              <Button 
+                asChild 
+                size="sm" 
+                className="bg-[#33CC33] hover:bg-[#33CC33]/90 text-white shadow-lg shadow-[#33CC33]/20 px-4 py-2 rounded-lg transition-all duration-300"
+              >
                 <Link to="/verification">
                   <LogIn className="h-4 w-4 mr-2" />
                   Login
@@ -201,7 +220,7 @@ const Navbar = () => {
             aria-label="Toggle menu"
             className={cn(
               "relative z-50 transition-colors",
-              isMenuOpen && "bg-primary/10"
+              isMenuOpen && "bg-[#33CC33]/10"
             )}
           >
             {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -209,19 +228,19 @@ const Navbar = () => {
         )}
       </div>
 
-      {/* Mobile Menu with enhanced blur effect */}
+      {/* Mobile Menu with enhanced design */}
       {isMobile && (
         <div
           className={cn(
-            "fixed inset-0 top-[64px] z-40 transition-all duration-300",
+            "fixed inset-0 top-[70px] z-40 transition-all duration-300",
             isMenuOpen 
-              ? "opacity-100 pointer-events-auto bg-white/60 backdrop-blur-lg"
+              ? "opacity-100 pointer-events-auto bg-white/80 backdrop-blur-lg"
               : "opacity-0 pointer-events-none"
           )}
         >
           <div className="flex flex-col p-4 h-full">
             {loading ? (
-              <div className="flex items-center space-x-4 p-4 border rounded-lg shadow-sm bg-white mb-4">
+              <div className="flex items-center space-x-4 p-4 border rounded-lg shadow-md bg-white mb-4">
                 <Skeleton className="h-12 w-12 rounded-full" />
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-32" />
@@ -230,12 +249,12 @@ const Navbar = () => {
               </div>
             ) : currentUser ? (
               <div className={cn(
-                "flex items-center space-x-4 p-4 border rounded-lg shadow-sm bg-white mb-4 transition-all duration-300",
+                "flex items-center space-x-4 p-4 border rounded-lg shadow-md bg-white mb-4 transition-all duration-300",
                 isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
               )}>
-                <Avatar className="h-12 w-12">
+                <Avatar className="h-12 w-12 border-2 border-[#33CC33]/20">
                   <AvatarImage src={userData?.photoURL || ''} alt={userData?.displayName || ''} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                  <AvatarFallback className="bg-[#33CC33]/10 text-[#33CC33] text-lg">
                     {(userData?.displayName?.charAt(0) || userData?.email?.charAt(0) || 'U').toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -250,8 +269,8 @@ const Navbar = () => {
               <Link
                 to="/"
                 className={cn(
-                  "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                  location.pathname === '/' && "bg-primary text-primary-foreground hover:bg-primary/90",
+                  "flex items-center p-4 text-base font-medium rounded-lg hover:bg-[#F3F6F8] transition-all duration-300",
+                  location.pathname === '/' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90",
                   isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
                   "transition-all delay-[50ms]"
                 )}
@@ -264,8 +283,8 @@ const Navbar = () => {
                   <Link
                     to="/voting"
                     className={cn(
-                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                      location.pathname === '/voting' && "bg-primary text-primary-foreground hover:bg-primary/90",
+                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-[#F3F6F8] transition-all duration-300",
+                      location.pathname === '/voting' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90",
                       isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
                       "transition-all delay-[100ms]"
                     )}
@@ -277,8 +296,8 @@ const Navbar = () => {
                   <Link
                     to="/classes"
                     className={cn(
-                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                      location.pathname === '/classes' && "bg-primary text-primary-foreground hover:bg-primary/90",
+                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-[#F3F6F8] transition-all duration-300",
+                      location.pathname === '/classes' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90",
                       isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
                       "transition-all delay-[150ms]"
                     )}
@@ -290,8 +309,8 @@ const Navbar = () => {
                   <Link
                     to="/profile"
                     className={cn(
-                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                      location.pathname === '/profile' && "bg-primary text-primary-foreground hover:bg-primary/90",
+                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-[#F3F6F8] transition-all duration-300",
+                      location.pathname === '/profile' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90",
                       isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
                       "transition-all delay-[200ms]"
                     )}
@@ -305,8 +324,8 @@ const Navbar = () => {
               <Link
                 to="/results"
                 className={cn(
-                  "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                  location.pathname === '/results' && "bg-primary text-primary-foreground hover:bg-primary/90",
+                  "flex items-center p-4 text-base font-medium rounded-lg hover:bg-[#F3F6F8] transition-all duration-300",
+                  location.pathname === '/results' && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90",
                   isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
                   "transition-all delay-[250ms]"
                 )}
@@ -319,8 +338,8 @@ const Navbar = () => {
                 <Link
                   to="/admin"
                   className={cn(
-                    "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                    location.pathname.startsWith('/admin') && "bg-primary text-primary-foreground hover:bg-primary/90",
+                    "flex items-center p-4 text-base font-medium rounded-lg hover:bg-[#F3F6F8] transition-all duration-300",
+                    location.pathname.startsWith('/admin') && "bg-[#33CC33] text-white hover:bg-[#33CC33]/90",
                     isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
                     "transition-all delay-[300ms]"
                   )}
@@ -336,14 +355,21 @@ const Navbar = () => {
                 "transition-all delay-[350ms]"
               )}>
                 {!currentUser ? (
-                  <Button asChild className="w-full shadow-sm">
+                  <Button 
+                    asChild 
+                    className="w-full shadow-lg shadow-[#33CC33]/20 bg-[#33CC33] hover:bg-[#33CC33]/90 text-white"
+                  >
                     <Link to="/verification" className="flex justify-center items-center">
                       <LogIn className="h-4 w-4 mr-2" />
                       Login
                     </Link>
                   </Button>
                 ) : (
-                  <Button variant="destructive" onClick={handleLogout} className="w-full shadow-sm">
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleLogout} 
+                    className="w-full shadow-sm"
+                  >
                     <LogOut className="h-4 w-4 mr-2" />
                     Log out
                   </Button>
