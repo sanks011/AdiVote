@@ -1,26 +1,42 @@
-
 import React, { useState } from 'react';
 import { Upload, X, Image as ImageIcon, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { uploadImage } from '@/lib/firebase';
+import { uploadToCloudinary } from '@/lib/cloudinary';
+import { toast } from 'sonner';
 
 export interface ImageUploadProps {
   folderPath: string;
   onImageUploaded: (url: string) => void;
+  currentImage?: string;
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ folderPath, onImageUploaded }) => {
+const ImageUpload: React.FC<ImageUploadProps> = ({ folderPath, onImageUploaded, currentImage }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(currentImage || null);
   const [uploading, setUploading] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setError('File size must be less than 2MB');
+        return;
+      }
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('File must be an image');
+        return;
+      }
+      
       setSelectedFile(file);
       setPreview(URL.createObjectURL(file));
       setUploadComplete(false);
+      setError(null);
     }
   };
   
@@ -29,15 +45,32 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ folderPath, onImageUploaded }
     
     try {
       setUploading(true);
-      const path = `${folderPath}/${Date.now()}_${selectedFile.name}`;
-      const url = await uploadImage(selectedFile, path);
+      setError(null);
+      
+      // Ensure folderPath is not empty
+      if (!folderPath) {
+        throw new Error('Folder path is required');
+      }
+      
+      // Show uploading toast
+      const uploadToast = toast.loading('Uploading image...');
+      
+      const url = await uploadToCloudinary(selectedFile, folderPath);
       
       if (url) {
         onImageUploaded(url);
         setUploadComplete(true);
+        toast.success('Image uploaded successfully', {
+          id: uploadToast
+        });
+      } else {
+        throw new Error('Failed to upload image');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload image';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setUploading(false);
     }
@@ -47,6 +80,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ folderPath, onImageUploaded }
     setSelectedFile(null);
     setPreview(null);
     setUploadComplete(false);
+    setError(null);
   };
   
   return (
@@ -108,6 +142,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ folderPath, onImageUploaded }
             )}
           </div>
         </div>
+      )}
+      {error && (
+        <p className="text-sm text-red-500 mt-2">{error}</p>
       )}
     </div>
   );

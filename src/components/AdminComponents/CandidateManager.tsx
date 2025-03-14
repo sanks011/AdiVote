@@ -428,7 +428,8 @@ const CandidateManager = () => {
             <div className="space-y-2">
               <Label>Candidate Photo</Label>
               <ImageUpload 
-                onImageUploaded={setUploadedImageUrl} 
+                folderPath="candidates"
+                onImageUploaded={handleImageUpload}
                 currentImage={uploadedImageUrl}
               />
             </div>

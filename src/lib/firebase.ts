@@ -725,12 +725,35 @@ export const updateElectionSettings = async (settings: Partial<ElectionSettings>
 // Storage functions
 export const uploadImage = async (file: File, path: string) => {
   try {
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
+    // Create a unique filename to avoid collisions
+    const timestamp = Date.now();
+    const uniqueFilename = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    const fullPath = `${path}/${uniqueFilename}`;
+    
+    const storageRef = ref(storage, fullPath);
+    
+    // Set metadata to handle CORS
+    const metadata = {
+      contentType: file.type,
+      customMetadata: {
+        'Access-Control-Allow-Origin': '*'
+      }
+    };
+    
+    // Upload the file with metadata
+    const snapshot = await uploadBytes(storageRef, file, metadata);
+    
+    // Get the download URL
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    if (!downloadURL) {
+      throw new Error('Failed to get download URL');
+    }
+    
     return downloadURL;
   } catch (error) {
-    console.error('Error uploading image: ', error);
+    console.error('Error uploading image:', error);
+    toast.error('Failed to upload image. Please try again.');
     return null;
   }
 };
