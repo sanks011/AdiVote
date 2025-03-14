@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogIn, LogOut, School, Vote, BarChart3, Settings } from 'lucide-react';
+import { Menu, X, User, LogIn, LogOut, School, Vote, BarChart3, Settings, Bell, Search, Home, Users, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -25,12 +26,79 @@ interface AuthContextType {
   logOut: () => Promise<void>;
 }
 
+// Enhanced animations and transitions
+const navVariants = {
+  hidden: { y: -100, opacity: 0 },
+  visible: { 
+    y: 0, 
+    opacity: 1,
+    transition: { 
+      type: "spring",
+      stiffness: 100,
+      damping: 20,
+      mass: 1
+    }
+  }
+};
+
+const menuItemVariants = {
+  hidden: { x: -20, opacity: 0 },
+  visible: (i: number) => ({
+    x: 0,
+    opacity: 1,
+    transition: {
+      delay: i * 0.1,
+      type: "spring",
+      stiffness: 100
+    }
+  })
+};
+
+const mobileMenuVariants = {
+  hidden: { opacity: 0, scale: 0.95, y: -20 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 30
+    }
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.95,
+    y: -20,
+    transition: {
+      duration: 0.2
+    }
+  }
+};
+
 const Navbar = () => {
   const location = useLocation();
   const { currentUser, userData, isAdmin, logOut, loading, userClass } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const isMobile = useMobile();
+
+  // Enhanced scroll progress animation
+  const { scrollYProgress } = useScroll();
+  const scrollOpacity = useTransform(scrollYProgress, [0, 0.2], [0, 1]);
+  const scrollBlur = useTransform(scrollYProgress, [0, 0.2], [0, 8]);
+
+  // Handle scroll effect with enhanced animation
+  useEffect(() => {
+    const handleScroll = () => {
+      const offset = window.scrollY;
+      setScrolled(offset > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -60,300 +128,361 @@ const Navbar = () => {
   };
 
   return (
-    <header 
-      className={cn(
-        "fixed top-0 left-0 right-0 min-h-[64px] border-b z-50 flex items-center transition-all duration-300",
-        isMenuOpen && isMobile
-          ? "bg-white/60 backdrop-blur-lg"
-          : "bg-white/90 backdrop-blur-md shadow-sm"
-      )}
-    >
-      <div className="container max-w-7xl mx-auto px-4 flex justify-between items-center">
-        <Link to="/" className="flex items-center">
-          <span className="font-bold text-xl md:text-2xl text-primary flex items-center">
-            <Vote className="h-6 w-6 mr-2 text-primary" />
-            AdiVote
-          </span>
-        </Link>
-
-        {/* Desktop Navigation */}
-        {!isMobile && (
-          <nav className="flex items-center space-x-1">
-            <Link
-              to="/"
-              className={cn(
-                "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                location.pathname === '/' && "bg-primary text-primary-foreground hover:bg-primary/90"
-              )}
-            >
-              Home
-            </Link>
-            {currentUser && (
-              <>
-                <Link
-                  to="/voting"
-                  className={cn(
-                    "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                    location.pathname === '/voting' && "bg-primary text-primary-foreground hover:bg-primary/90"
-                  )}
-                >
-                  Voting
-                </Link>
-                <Link
-                  to="/classes"
-                  className={cn(
-                    "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                    location.pathname === '/classes' && "bg-primary text-primary-foreground hover:bg-primary/90"
-                  )}
-                >
-                  Class Browser
-                </Link>
-              </>
-            )}
-            <Link
-              to="/results"
-              className={cn(
-                "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                location.pathname === '/results' && "bg-primary text-primary-foreground hover:bg-primary/90"
-              )}
-            >
-              Results
-            </Link>
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className={cn(
-                  "px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors",
-                  location.pathname.startsWith('/admin') && "bg-primary text-primary-foreground hover:bg-primary/90"
-                )}
-              >
-                Admin
-              </Link>
-            )}
-          </nav>
+    <>
+      <motion.div 
+        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#33CC33] to-[#2ecc71] z-50"
+        style={{ scaleX: scrollYProgress, transformOrigin: "0%" }}
+      />
+      <motion.header 
+        variants={navVariants}
+        initial="hidden"
+        animate="visible"
+        className={cn(
+          "fixed top-0 left-0 right-0 min-h-[70px] z-40 flex items-center transition-all duration-500",
+          scrolled
+            ? "border-b border-white/10 bg-white/80 backdrop-blur-xl shadow-lg"
+            : "bg-transparent",
+          isMenuOpen && isMobile
+            ? "bg-white/90 backdrop-blur-xl shadow-lg"
+            : ""
         )}
-
-        {/* User Menu - Desktop */}
-        {!isMobile ? (
-          <div className="block">
-            {loading ? (
-              <Skeleton className="h-10 w-10 rounded-full" />
-            ) : currentUser ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative rounded-full h-10 w-10 p-0 hover:bg-gray-100 transition-colors">
-                    <Avatar>
-                      <AvatarImage src={userData?.photoURL || ''} alt={userData?.displayName || ''} />
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {(userData?.displayName?.charAt(0) || userData?.email?.charAt(0) || 'U').toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="flex flex-col">
-                    <span>{userData?.displayName || userData?.email?.split('@')[0]}</span>
-                    <span className="text-xs font-normal text-gray-500 truncate">{userData?.email}</span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {userClass && (
-                    <>
-                      <DropdownMenuItem className="flex items-center">
-                        <School className="mr-2 h-4 w-4" />
-                        <span className="truncate">{userClass.name}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile" className="cursor-pointer flex w-full items-center">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/classes" className="cursor-pointer flex w-full items-center">
-                      <School className="mr-2 h-4 w-4" />
-                      Class Browser
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button asChild size="sm" className="shadow-sm">
-                <Link to="/verification">
-                  <LogIn className="h-4 w-4 mr-2" />
-                  Login
-                </Link>
-              </Button>
-            )}
-          </div>
-        ) : (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={toggleMenu} 
-            aria-label="Toggle menu"
-            className={cn(
-              "relative z-50 transition-colors",
-              isMenuOpen && "bg-primary/10"
-            )}
+        style={{
+          backgroundColor: scrolled ? "rgba(255, 255, 255, 0.9)" : "transparent",
+          backdropFilter: `blur(${scrollBlur}px)`,
+        }}
+      >
+        <div className="container max-w-7xl mx-auto px-4 flex justify-between items-center">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="relative"
           >
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
-        )}
-      </div>
-
-      {/* Mobile Menu with enhanced blur effect */}
-      {isMobile && (
-        <div
-          className={cn(
-            "fixed inset-0 top-[64px] z-40 transition-all duration-300",
-            isMenuOpen 
-              ? "opacity-100 pointer-events-auto bg-white/60 backdrop-blur-lg"
-              : "opacity-0 pointer-events-none"
-          )}
-        >
-          <div className="flex flex-col p-4 h-full">
-            {loading ? (
-              <div className="flex items-center space-x-4 p-4 border rounded-lg shadow-sm bg-white mb-4">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </div>
-            ) : currentUser ? (
-              <div className={cn(
-                "flex items-center space-x-4 p-4 border rounded-lg shadow-sm bg-white mb-4 transition-all duration-300",
-                isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-              )}>
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={userData?.photoURL || ''} alt={userData?.displayName || ''} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                    {(userData?.displayName?.charAt(0) || userData?.email?.charAt(0) || 'U').toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{userData?.displayName || userData?.email?.split('@')[0]}</p>
-                  <p className="text-sm text-gray-500 truncate">{userData?.email}</p>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-1 gap-2">
-              <Link
-                to="/"
-                className={cn(
-                  "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                  location.pathname === '/' && "bg-primary text-primary-foreground hover:bg-primary/90",
-                  isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-                  "transition-all delay-[50ms]"
-                )}
+            <Link to="/" className="flex items-center">
+              <motion.div 
+                className="absolute -inset-2 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-lg blur"
+                animate={{
+                  scale: [1, 1.1, 1],
+                  opacity: [0.3, 0.5, 0.3],
+                }}
+                transition={{
+                  duration: 4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+              <motion.span 
+                className="font-bold text-xl md:text-2xl text-[#33CC33] flex items-center relative"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
               >
-                Home
-              </Link>
+                <Vote className="h-6 w-6 mr-2 text-[#33CC33]" />
+                AdiVote
+              </motion.span>
+            </Link>
+          </motion.div>
 
-              {currentUser && (
-                <>
-                  <Link
-                    to="/voting"
-                    className={cn(
-                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                      location.pathname === '/voting' && "bg-primary text-primary-foreground hover:bg-primary/90",
-                      isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-                      "transition-all delay-[100ms]"
-                    )}
-                  >
-                    <Vote className="h-5 w-5 mr-3" />
-                    Voting
-                  </Link>
-
-                  <Link
-                    to="/classes"
-                    className={cn(
-                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                      location.pathname === '/classes' && "bg-primary text-primary-foreground hover:bg-primary/90",
-                      isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-                      "transition-all delay-[150ms]"
-                    )}
-                  >
-                    <School className="h-5 w-5 mr-3" />
-                    Class Browser
-                  </Link>
-
-                  <Link
-                    to="/profile"
-                    className={cn(
-                      "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                      location.pathname === '/profile' && "bg-primary text-primary-foreground hover:bg-primary/90",
-                      isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-                      "transition-all delay-[200ms]"
-                    )}
-                  >
-                    <User className="h-5 w-5 mr-3" />
-                    Profile
-                  </Link>
-                </>
-              )}
-
-              <Link
-                to="/results"
-                className={cn(
-                  "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                  location.pathname === '/results' && "bg-primary text-primary-foreground hover:bg-primary/90",
-                  isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-                  "transition-all delay-[250ms]"
-                )}
-              >
-                <BarChart3 className="h-5 w-5 mr-3" />
-                Results
-              </Link>
-
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className={cn(
-                    "flex items-center p-4 text-base font-medium rounded-lg hover:bg-gray-100 transition-all duration-300",
-                    location.pathname.startsWith('/admin') && "bg-primary text-primary-foreground hover:bg-primary/90",
-                    isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-                    "transition-all delay-[300ms]"
-                  )}
+          {/* Desktop Navigation */}
+          {!isMobile && (
+            <nav className="flex items-center space-x-4">
+              {[
+                { to: "/", label: "Home", icon: <Home className="w-4 h-4" /> },
+                ...(currentUser ? [
+                  { to: "/voting", label: "Voting", icon: <Vote className="w-4 h-4" /> },
+                  { to: "/classes", label: "Class Browser", icon: <Users className="w-4 h-4" /> }
+                ] : []),
+                { to: "/results", label: "Results", icon: <BarChart3 className="w-4 h-4" /> },
+                ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: <Settings className="w-4 h-4" /> }] : [])
+              ].map((item, i) => (
+                <motion.div
+                  key={item.to}
+                  custom={i}
+                  variants={menuItemVariants}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <Settings className="h-5 w-5 mr-3" />
-                  Admin
-                </Link>
-              )}
+                  <Link
+                    to={item.to}
+                    className={cn(
+                      "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center gap-2",
+                      (item.to === '/' && location.pathname === '/') || 
+                      (item.to !== '/' && location.pathname.startsWith(item.to))
+                        ? "bg-gradient-to-r from-[#33CC33] to-[#2ecc71] text-white shadow-lg shadow-[#33CC33]/20"
+                        : "hover:bg-[#F3F6F8] hover:text-[#33CC33]"
+                    )}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </Link>
+                </motion.div>
+              ))}
+            </nav>
+          )}
 
-              <div className={cn(
-                "mt-4 transition-all duration-300",
-                isMenuOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-                "transition-all delay-[350ms]"
-              )}>
-                {!currentUser ? (
-                  <Button asChild className="w-full shadow-sm">
-                    <Link to="/verification" className="flex justify-center items-center">
-                      <LogIn className="h-4 w-4 mr-2" />
+          {/* User Menu - Desktop */}
+          {!isMobile ? (
+            <div className="flex items-center space-x-4">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="relative"
+              >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative rounded-full w-10 h-10 hover:bg-[#F3F6F8]"
+                >
+                  <Bell className="w-5 h-5 text-[#33CC33]" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                </Button>
+              </motion.div>
+
+              {loading ? (
+                <Skeleton className="h-10 w-10 rounded-full" />
+              ) : currentUser ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }} 
+                      whileTap={{ scale: 0.95 }}
+                      className="relative"
+                    >
+                      <Button variant="ghost" className="relative rounded-full h-10 w-10 p-0 hover:bg-[#F3F6F8]">
+                        <motion.div
+                          className="absolute -inset-1 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-full blur"
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            opacity: [0.3, 0.5, 0.3],
+                          }}
+                          transition={{
+                            duration: 3,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                          }}
+                        />
+                        <Avatar>
+                          <AvatarImage src={userData?.photoURL || ''} alt={userData?.displayName || ''} />
+                          <AvatarFallback className="bg-[#33CC33]/10 text-[#33CC33]">
+                            {(userData?.displayName?.charAt(0) || userData?.email?.charAt(0) || 'U').toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </motion.div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 border-[#33CC33]/20 shadow-lg backdrop-blur-lg bg-white/90">
+                    <DropdownMenuLabel className="flex flex-col">
+                      <span>{userData?.displayName || userData?.email?.split('@')[0]}</span>
+                      <span className="text-xs font-normal text-gray-500 truncate">{userData?.email}</span>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {userClass && (
+                      <>
+                        <DropdownMenuItem className="flex items-center">
+                          <School className="mr-2 h-4 w-4 text-[#33CC33]" />
+                          <span className="truncate">{userClass.name}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
+                    <motion.div whileHover={{ x: 5 }} transition={{ type: "spring", stiffness: 400 }}>
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile" className="cursor-pointer flex w-full items-center">
+                          <User className="mr-2 h-4 w-4 text-[#33CC33]" />
+                          Profile
+                        </Link>
+                      </DropdownMenuItem>
+                    </motion.div>
+                    <motion.div whileHover={{ x: 5 }} transition={{ type: "spring", stiffness: 400 }}>
+                      <DropdownMenuItem asChild>
+                        <Link to="/classes" className="cursor-pointer flex w-full items-center">
+                          <School className="mr-2 h-4 w-4 text-[#33CC33]" />
+                          Class Browser
+                        </Link>
+                      </DropdownMenuItem>
+                    </motion.div>
+                    <DropdownMenuSeparator />
+                    <motion.div 
+                      whileHover={{ x: 5, color: "#ef4444" }} 
+                      transition={{ type: "spring", stiffness: 400 }}
+                    >
+                      <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 flex items-center">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Log out
+                      </DropdownMenuItem>
+                    </motion.div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button 
+                    asChild 
+                    size="sm" 
+                    className="bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white shadow-lg shadow-[#33CC33]/20 px-4 py-2 rounded-lg"
+                  >
+                    <Link to="/verification" className="flex items-center gap-2">
+                      <LogIn className="h-4 w-4" />
                       Login
                     </Link>
                   </Button>
-                ) : (
-                  <Button variant="destructive" onClick={handleLogout} className="w-full shadow-sm">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Log out
-                  </Button>
-                )}
-              </div>
+                </motion.div>
+              )}
             </div>
-          </div>
+          ) : (
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleMenu} 
+              aria-label="Toggle menu"
+              className={cn(
+                "relative z-50 p-2 rounded-lg transition-all duration-300",
+                isMenuOpen ? "bg-[#33CC33]/10" : ""
+              )}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={isMenuOpen ? "close" : "menu"}
+                  initial={{ opacity: 0, rotate: -180 }}
+                  animate={{ opacity: 1, rotate: 0 }}
+                  exit={{ opacity: 0, rotate: 180 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                </motion.div>
+              </AnimatePresence>
+            </motion.button>
+          )}
         </div>
-      )}
-    </header>
+      </motion.header>
+
+      {/* Mobile Menu with enhanced animations */}
+      <AnimatePresence>
+        {isMobile && isMenuOpen && (
+          <motion.div
+            variants={mobileMenuVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed inset-0 top-[70px] z-30 bg-white/90 backdrop-blur-xl"
+          >
+            <motion.div 
+              className="flex flex-col p-4 h-full"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+              }}
+              initial="hidden"
+              animate="visible"
+            >
+              {loading ? (
+                <motion.div 
+                  className="flex items-center space-x-4 p-4 border rounded-lg shadow-md bg-white/50 backdrop-blur-sm mb-4"
+                  variants={menuItemVariants}
+                >
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </motion.div>
+              ) : currentUser ? (
+                <motion.div 
+                  className="flex items-center space-x-4 p-4 border rounded-lg shadow-md bg-white/50 backdrop-blur-sm mb-4"
+                  variants={menuItemVariants}
+                >
+                  <Avatar className="h-12 w-12 border-2 border-[#33CC33]/20">
+                    <AvatarImage src={userData?.photoURL || ''} alt={userData?.displayName || ''} />
+                    <AvatarFallback className="bg-[#33CC33]/10 text-[#33CC33] text-lg">
+                      {(userData?.displayName?.charAt(0) || userData?.email?.charAt(0) || 'U').toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{userData?.displayName || userData?.email?.split('@')[0]}</p>
+                    <p className="text-sm text-gray-500 truncate">{userData?.email}</p>
+                  </div>
+                </motion.div>
+              ) : null}
+
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  { to: "/", label: "Home", icon: <Home className="h-5 w-5 mr-3" /> },
+                  ...(currentUser ? [
+                    { to: "/voting", label: "Voting", icon: <Vote className="h-5 w-5 mr-3" /> },
+                    { to: "/classes", label: "Class Browser", icon: <School className="h-5 w-5 mr-3" /> },
+                    { to: "/profile", label: "Profile", icon: <User className="h-5 w-5 mr-3" /> }
+                  ] : []),
+                  { to: "/results", label: "Results", icon: <BarChart3 className="h-5 w-5 mr-3" /> },
+                  ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: <Settings className="h-5 w-5 mr-3" /> }] : [])
+                ].map((item, i) => (
+                  <motion.div
+                    key={item.to}
+                    variants={menuItemVariants}
+                    custom={i}
+                    whileHover={{ scale: 1.02, x: 10 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Link
+                      to={item.to}
+                      className={cn(
+                        "flex items-center p-4 text-base font-medium rounded-lg transition-all duration-300",
+                        (item.to === '/' && location.pathname === '/') || 
+                        (item.to !== '/' && location.pathname.startsWith(item.to))
+                          ? "bg-gradient-to-r from-[#33CC33] to-[#2ecc71] text-white shadow-lg shadow-[#33CC33]/20"
+                          : "hover:bg-[#F3F6F8] hover:text-[#33CC33]"
+                      )}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+
+              <motion.div 
+                className="mt-4"
+                variants={menuItemVariants}
+                custom={6}
+              >
+                {!currentUser ? (
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button 
+                      asChild 
+                      className="w-full bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white shadow-lg shadow-[#33CC33]/20"
+                    >
+                      <Link to="/verification" className="flex justify-center items-center gap-2">
+                        <LogIn className="h-4 w-4" />
+                        Login
+                      </Link>
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleLogout} 
+                      className="w-full shadow-lg"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Log out
+                    </Button>
+                  </motion.div>
+                )}
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
