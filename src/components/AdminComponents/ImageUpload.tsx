@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { Upload, X, Image as ImageIcon, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { uploadImage } from '@/lib/firebase';
+import { toast } from 'sonner';
 
 export interface ImageUploadProps {
   folderPath: string;
@@ -14,35 +13,56 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ folderPath, onImageUploaded }
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
-  
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      // Check file size (2MB limit)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('File size must be less than 2MB');
+        return;
+      }
       setSelectedFile(file);
       setPreview(URL.createObjectURL(file));
       setUploadComplete(false);
     }
   };
-  
+
   const handleUpload = async () => {
     if (!selectedFile) return;
-    
+
     try {
       setUploading(true);
-      const path = `${folderPath}/${Date.now()}_${selectedFile.name}`;
-      const url = await uploadImage(selectedFile, path);
       
-      if (url) {
-        onImageUploaded(url);
-        setUploadComplete(true);
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
+      formData.append('folder', folderPath);
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
       }
+
+      const data = await response.json();
+      onImageUploaded(data.secure_url);
+      setUploadComplete(true);
+      toast.success('Image uploaded successfully');
     } catch (error) {
       console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
     } finally {
       setUploading(false);
     }
   };
-  
+
   const handleRemove = () => {
     setSelectedFile(null);
     setPreview(null);
