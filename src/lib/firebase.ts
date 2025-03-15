@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, User, onAuthStateChanged, reload } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit, writeBatch, increment, arrayUnion, arrayRemove, deleteField, serverTimestamp, addDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit, writeBatch, increment, arrayUnion, arrayRemove, deleteField, serverTimestamp, addDoc, onSnapshot } from 'firebase/firestore';
 import { getDatabase, ref as rtdbRef, onValue, set as rtdbSet, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
@@ -1123,6 +1123,165 @@ export const getPendingRequests = async (userId: string): Promise<ClassRequest[]
   } catch (error) {
     console.error('Error getting pending requests:', error);
     throw new Error('Failed to get pending requests');
+  }
+};
+
+// Notification Types
+export interface Notification {
+  id?: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
+  createdAt: Date;
+  link?: string;
+}
+
+// Get user's notifications
+export const getUserNotifications = async (userId: string) => {
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(
+      notificationsRef,
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate()
+    })) as Notification[];
+  } catch (error) {
+    console.error('Error getting notifications:', error);
+    throw error;
+  }
+};
+
+// Subscribe to real-time notifications
+export const subscribeToNotifications = (userId: string, callback: (notifications: Notification[]) => void) => {
+  const notificationsRef = collection(db, 'notifications');
+  const q = query(
+    notificationsRef,
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const notifications = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate()
+    })) as Notification[];
+    callback(notifications);
+  });
+};
+
+// Mark notification as read
+export const markNotificationAsRead = async (notificationId: string) => {
+  try {
+    const notificationRef = doc(db, 'notifications', notificationId);
+    await updateDoc(notificationRef, {
+      read: true
+    });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    throw error;
+  }
+};
+
+// Mark all notifications as read
+export const markAllNotificationsAsRead = async (userId: string) => {
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(
+      notificationsRef,
+      where('userId', '==', userId),
+      where('read', '==', false)
+    );
+    
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { read: true });
+    });
+    
+    await batch.commit();
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    throw error;
+  }
+};
+
+// Create a notification
+export const createNotification = async (notification: Omit<Notification, 'id' | 'createdAt'>) => {
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    await addDoc(notificationsRef, {
+      ...notification,
+      createdAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    throw error;
+  }
+};
+
+// Delete a notification
+export const deleteNotification = async (notificationId: string) => {
+  try {
+    const notificationRef = doc(db, 'notifications', notificationId);
+    await deleteDoc(notificationRef);
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    throw error;
+  }
+};
+
+// Helper function to create test notifications (for development only)
+export const createTestNotifications = async (userId: string) => {
+  const testNotifications: Omit<Notification, 'id' | 'createdAt'>[] = [
+    {
+      userId,
+      title: 'Welcome to AdiVote!',
+      message: 'Thank you for joining. Start by browsing available classes.',
+      type: 'info' as const,
+      read: false,
+      link: '/classes'
+    },
+    {
+      userId,
+      title: 'New Election Started',
+      message: 'A new election has started in your class. Cast your vote now!',
+      type: 'success' as const,
+      read: false,
+      link: '/voting'
+    },
+    {
+      userId,
+      title: 'Reminder: Vote Now',
+      message: 'Don\'t forget to cast your vote before the election ends.',
+      type: 'warning' as const,
+      read: false,
+      link: '/voting'
+    },
+    {
+      userId,
+      title: 'Results Available',
+      message: 'The election results are now available. Check them out!',
+      type: 'info' as const,
+      read: true,
+      link: '/results'
+    }
+  ];
+
+  for (const notification of testNotifications) {
+    await createNotification(notification);
   }
 };
 
