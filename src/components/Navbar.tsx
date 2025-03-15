@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import NotificationsDropdown from './NotificationsDropdown';
 
 interface UserData {
   displayName?: string;
@@ -240,14 +241,7 @@ const Navbar = () => {
                 whileTap={{ scale: 0.95 }}
                 className="relative"
               >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative rounded-full w-10 h-10 hover:bg-[#F3F6F8]"
-                >
-                  <Bell className="w-5 h-5 text-[#33CC33]" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                </Button>
+                <NotificationsDropdown />
               </motion.div>
 
               {loading ? (

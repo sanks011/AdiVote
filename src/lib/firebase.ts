@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, User, onAuthStateChanged, reload } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit, writeBatch, increment, arrayUnion, arrayRemove, deleteField, serverTimestamp, addDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit, writeBatch, increment, arrayUnion, arrayRemove, deleteField, serverTimestamp, addDoc, onSnapshot } from 'firebase/firestore';
 import { getDatabase, ref as rtdbRef, onValue, set as rtdbSet, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
@@ -298,14 +298,48 @@ export const getClassById = async (classId: string) => {
 
 export const getClassUsers = async (classId: string) => {
   try {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('classId', '==', classId));
-    const querySnapshot = await getDocs(q);
+    // Get all members from the class's members subcollection
+    const membersRef = collection(db, 'classes', classId, 'members');
+    const membersSnap = await getDocs(membersRef);
     
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    // Process each member in parallel for better performance
+    const memberPromises = membersSnap.docs.map(async (memberDoc) => {
+      try {
+        const memberData = memberDoc.data();
+        const userDoc = await getDoc(doc(db, 'users', memberDoc.id));
+        
+        if (!userDoc.exists()) {
+          console.warn(`User document not found for member ${memberDoc.id}`);
+          return null;
+        }
+        
+        const userData = userDoc.data();
+        return {
+          id: memberDoc.id,
+          displayName: userData.displayName || userData.email?.split('@')[0] || 'Unknown User',
+          email: userData.email,
+          photoURL: userData.photoURL,
+          role: memberData.role || 'member',
+          joinedAt: memberData.joinedAt,
+          hasVoted: userData.hasVoted || false,
+          isAdmin: userData.isAdmin || false,
+          lastLogin: userData.lastLogin
+        };
+      } catch (error) {
+        console.error(`Error fetching data for member ${memberDoc.id}:`, error);
+        return null;
+      }
+    });
+    
+    const members = (await Promise.all(memberPromises))
+      .filter(Boolean) // Remove null values
+      .sort((a, b) => {
+        // Sort by role (admin first) then by join date
+        if (a.isAdmin !== b.isAdmin) return a.isAdmin ? -1 : 1;
+        return b.joinedAt?.toMillis() - a.joinedAt?.toMillis();
+      });
+    
+    return members;
   } catch (error) {
     console.error('Error getting class users:', error);
     return [];
@@ -314,12 +348,38 @@ export const getClassUsers = async (classId: string) => {
 
 export const addUserToClass = async (userId: string, classId: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      classId: classId,
-      updatedAt: Timestamp.now()
+    const batch = writeBatch(db);
+    
+    // Get class details
+    const classRef = doc(db, 'classes', classId);
+    const classDoc = await getDoc(classRef);
+    if (!classDoc.exists()) {
+      throw new Error('Class not found');
+    }
+    const classData = classDoc.data();
+
+    // Add user to class members collection
+    const memberRef = doc(db, 'classes', classId, 'members', userId);
+    batch.set(memberRef, {
+      userId,
+      joinedAt: serverTimestamp(),
+      role: 'member'
     });
     
+    // Update user document
+    const userRef = doc(db, 'users', userId);
+    batch.update(userRef, {
+      classId: classId,
+      classes: arrayUnion({
+        id: classId,
+        name: classData.name,
+        joinedAt: serverTimestamp(),
+        role: 'member'
+      }),
+      updatedAt: serverTimestamp()
+    });
+    
+    await batch.commit();
     toast.success('User added to class successfully');
     return true;
   } catch (error) {
@@ -331,12 +391,33 @@ export const addUserToClass = async (userId: string, classId: string) => {
 
 export const removeUserFromClass = async (userId: string) => {
   try {
+    // Get user data to find their class
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+    const userData = userDoc.data();
+    const classId = userData.classId;
+
+    if (!classId) {
+      throw new Error('User is not in any class');
+    }
+
+    const batch = writeBatch(db);
+    
+    // Remove user from class members collection
+    const memberRef = doc(db, 'classes', classId, 'members', userId);
+    batch.delete(memberRef);
+    
+    // Update user document
+    batch.update(userRef, {
       classId: null,
-      updatedAt: Timestamp.now()
+      classes: arrayRemove(...(userData.classes || []).filter((cls: any) => cls.id === classId)),
+      updatedAt: serverTimestamp()
     });
     
+    await batch.commit();
     toast.success('User removed from class successfully');
     return true;
   } catch (error) {
@@ -361,46 +442,43 @@ export interface ClassRequest {
 
 export const requestToJoinClass = async (userId: string, classId: string) => {
   try {
-    // Get user data
+    // Get user details first
     const userDoc = await getDoc(doc(db, 'users', userId));
     if (!userDoc.exists()) {
       throw new Error('User not found');
     }
     const userData = userDoc.data();
 
-    // Get class data
+    // Check if user is not an admin and already in a class
+    if (!userData.isAdmin && userData.classes && userData.classes.length > 0) {
+      throw new Error('You are already a member of a class. Normal users can only join one class at a time.');
+    }
+
+    // Check if user already has any pending requests
+    const userRequestsRef = collection(db, 'classRequests');
+    const q = query(userRequestsRef, 
+      where('userId', '==', userId),
+      where('status', '==', 'pending')
+    );
+    const existingRequests = await getDocs(q);
+    
+    if (!existingRequests.empty) {
+      throw new Error('You already have a pending request. Please wait for it to be processed.');
+    }
+
+    // Get class details
     const classDoc = await getDoc(doc(db, 'classes', classId));
     if (!classDoc.exists()) {
       throw new Error('Class not found');
     }
     const classData = classDoc.data();
 
-    // Check class membership restrictions for non-admin users
-    if (!userData.isAdmin) {
-      const userClasses = userData.classes || [];
-      if (userClasses.length > 0) {
-        throw new Error('You can only join one class at a time');
-      }
-    }
-
-    // Check if request already exists
-    const requestsRef = collection(db, 'classRequests');
-    const q = query(
-      requestsRef,
-      where('userId', '==', userId),
-      where('classId', '==', classId),
-      where('status', '==', 'pending')
-    );
-    const existingRequests = await getDocs(q);
-    
-    if (!existingRequests.empty) {
-      throw new Error('You already have a pending request for this class');
-    }
-
-    // Create new request
-    await addDoc(collection(db, 'classRequests'), {
+    // Create the request
+    const requestRef = doc(collection(db, 'classRequests'));
+    await setDoc(requestRef, {
+      id: requestRef.id,
       userId,
-      userName: userData.displayName || userData.email?.split('@')[0] || 'Unknown User',
+      userName: userData.displayName || 'Unknown User',
       userEmail: userData.email,
       classId,
       className: classData.name,
@@ -408,8 +486,8 @@ export const requestToJoinClass = async (userId: string, classId: string) => {
       requestDate: serverTimestamp()
     });
 
-    return true;
-  } catch (error) {
+    return requestRef.id;
+  } catch (error: any) {
     console.error('Error requesting to join class:', error);
     throw error;
   }
@@ -522,7 +600,8 @@ export const approveClassRequest = async (requestId: string) => {
     const { userId, classId } = requestData;
     
     // Get class details
-    const classDoc = await getDoc(doc(db, 'classes', classId));
+    const classRef = doc(db, 'classes', classId);
+    const classDoc = await getDoc(classRef);
     if (!classDoc.exists()) {
       throw new Error('Class not found');
     }
@@ -534,21 +613,42 @@ export const approveClassRequest = async (requestId: string) => {
     // Update request status
     batch.update(requestRef, {
       status: 'approved',
-      responseDate: Timestamp.now()
+      responseDate: serverTimestamp()
     });
     
-    // Add class to user's classes array with timestamp
+    // Add user to class members collection
+    const memberRef = doc(db, 'classes', classId, 'members', userId);
+    batch.set(memberRef, {
+      userId,
+      joinedAt: serverTimestamp(),
+      role: 'member'
+    });
+    
+    // Update user document with class info
     const userRef = doc(db, 'users', userId);
     batch.update(userRef, {
+      classId: classId,
       classes: arrayUnion({
         id: classId,
         name: classData.name,
-        joinedAt: Timestamp.now()
-      })
+        joinedAt: serverTimestamp(),
+        role: 'member'
+      }),
+      updatedAt: serverTimestamp()
     });
     
     // Commit the batch
     await batch.commit();
+
+    // Create a notification for the user
+    await createNotification({
+      userId,
+      title: 'Class Join Request Approved',
+      message: `Your request to join ${classData.name} has been approved.`,
+      type: 'success',
+      read: false,
+      link: `/classes/${classId}`
+    });
     
     return true;
   } catch (error) {
@@ -870,33 +970,39 @@ export const leaveClass = async (userId: string, classId: string) => {
       throw new Error('Only administrators can leave classes');
     }
 
-    // Get current classes array
-    const currentClasses = userData.classes || [];
-    const updatedClasses = currentClasses.filter((cls: any) => cls.id !== classId);
-
     const batch = writeBatch(db);
     
-    // Update user document with filtered classes array
-    batch.update(doc(db, 'users', userId), {
-      classes: updatedClasses
-    });
+    // Remove user from class members collection
+    const memberRef = doc(db, 'classes', classId, 'members', userId);
+    batch.delete(memberRef);
+    
+    // Remove class from user's classes array
+    const userRef = doc(db, 'users', userId);
+    const userClasses = userData.classes || [];
+    const updatedClasses = userClasses.filter((cls: any) => cls.id !== classId);
+    batch.update(userRef, { classes: updatedClasses });
     
     // Remove any pending requests
     const requestsRef = collection(db, 'classRequests');
-    const requestsQuery = query(requestsRef, where('userId', '==', userId), where('classId', '==', classId));
+    const requestsQuery = query(requestsRef, 
+      where('userId', '==', userId), 
+      where('classId', '==', classId)
+    );
     const requestsSnap = await getDocs(requestsQuery);
-    
     requestsSnap.forEach(doc => {
       batch.delete(doc.ref);
     });
     
+    // Commit all changes
     await batch.commit();
+    
+    // Only show success message if we get here (no errors)
     toast.success('Successfully left the class');
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error leaving class:', error);
-    toast.error(error instanceof Error ? error.message : 'Failed to leave class');
-    return false;
+    // Throw the error instead of showing toast here
+    throw error;
   }
 };
 
@@ -1123,6 +1229,195 @@ export const getPendingRequests = async (userId: string): Promise<ClassRequest[]
   } catch (error) {
     console.error('Error getting pending requests:', error);
     throw new Error('Failed to get pending requests');
+  }
+};
+
+// Notification Types
+export interface Notification {
+  id?: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
+  createdAt: Date;
+  link?: string;
+}
+
+// Get user's notifications
+export const getUserNotifications = async (userId: string) => {
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(
+      notificationsRef,
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate()
+    })) as Notification[];
+  } catch (error) {
+    console.error('Error getting notifications:', error);
+    throw error;
+  }
+};
+
+// Subscribe to real-time notifications
+export const subscribeToNotifications = (userId: string, callback: (notifications: Notification[]) => void) => {
+  const notificationsRef = collection(db, 'notifications');
+  const q = query(
+    notificationsRef,
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const notifications = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate()
+    })) as Notification[];
+    callback(notifications);
+  });
+};
+
+// Mark notification as read
+export const markNotificationAsRead = async (notificationId: string) => {
+  try {
+    const notificationRef = doc(db, 'notifications', notificationId);
+    await updateDoc(notificationRef, {
+      read: true
+    });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    throw error;
+  }
+};
+
+// Mark all notifications as read
+export const markAllNotificationsAsRead = async (userId: string) => {
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(
+      notificationsRef,
+      where('userId', '==', userId),
+      where('read', '==', false)
+    );
+    
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { read: true });
+    });
+    
+    await batch.commit();
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    throw error;
+  }
+};
+
+// Create a notification
+export const createNotification = async (notification: Omit<Notification, 'id' | 'createdAt'>) => {
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    await addDoc(notificationsRef, {
+      ...notification,
+      createdAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    throw error;
+  }
+};
+
+// Delete a notification
+export const deleteNotification = async (notificationId: string) => {
+  try {
+    const notificationRef = doc(db, 'notifications', notificationId);
+    await deleteDoc(notificationRef);
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    throw error;
+  }
+};
+
+// Helper function to create test notifications (for development only)
+export const createTestNotifications = async (userId: string) => {
+  const testNotifications: Omit<Notification, 'id' | 'createdAt'>[] = [
+    {
+      userId,
+      title: 'Welcome to AdiVote!',
+      message: 'Thank you for joining. Start by browsing available classes.',
+      type: 'info' as const,
+      read: false,
+      link: '/classes'
+    },
+    {
+      userId,
+      title: 'New Election Started',
+      message: 'A new election has started in your class. Cast your vote now!',
+      type: 'success' as const,
+      read: false,
+      link: '/voting'
+    },
+    {
+      userId,
+      title: 'Reminder: Vote Now',
+      message: 'Don\'t forget to cast your vote before the election ends.',
+      type: 'warning' as const,
+      read: false,
+      link: '/voting'
+    },
+    {
+      userId,
+      title: 'Results Available',
+      message: 'The election results are now available. Check them out!',
+      type: 'info' as const,
+      read: true,
+      link: '/results'
+    }
+  ];
+
+  for (const notification of testNotifications) {
+    await createNotification(notification);
+  }
+};
+
+// Add a new function to get class members
+export const getClassMembers = async (classId: string) => {
+  try {
+    const membersRef = collection(db, 'classes', classId, 'members');
+    const membersSnap = await getDocs(membersRef);
+    
+    const members = [];
+    for (const memberDoc of membersSnap.docs) {
+      const memberData = memberDoc.data();
+      const userDoc = await getDoc(doc(db, 'users', memberData.userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        members.push({
+          userId: memberData.userId,
+          displayName: userData.displayName || userData.email?.split('@')[0] || 'Unknown User',
+          email: userData.email,
+          photoURL: userData.photoURL,
+          role: memberData.role,
+          joinedAt: memberData.joinedAt
+        });
+      }
+    }
+    
+    return members;
+  } catch (error) {
+    console.error('Error getting class members:', error);
+    return [];
   }
 };
 

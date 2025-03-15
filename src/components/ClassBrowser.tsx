@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const ClassBrowser = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -105,14 +105,12 @@ const ClassBrowser = () => {
       setRequestingClasses(prev => ({ ...prev, [classId]: true }));
       await leaveClass(currentUser.uid, classId);
       
-      // Refresh user classes
+      // Only refresh user classes if leave was successful
       const updatedClasses = await getUserClasses(currentUser.uid);
       setUserClasses(updatedClasses);
-      
-      toast.success('Successfully left the class');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error leaving class:', error);
-      toast.error('Failed to leave class. Please try again.');
+      toast.error(error.message || 'Failed to leave class');
     } finally {
       setRequestingClasses(prev => ({ ...prev, [classId]: false }));
     }
@@ -134,6 +132,11 @@ const ClassBrowser = () => {
   
   const isPendingRequest = (classId: string) => {
     return pendingRequests.includes(classId);
+  };
+  
+  // Add helper function to check if user can join more classes
+  const canJoinMoreClasses = () => {
+    return userData?.isAdmin || userClasses.length === 0;
   };
   
   if (loading) {
@@ -161,8 +164,9 @@ const ClassBrowser = () => {
         <Info className="h-5 w-5 text-blue-500" />
         <AlertTitle>Join Multiple Classes</AlertTitle>
         <AlertDescription>
-          You can now join multiple classes to participate in different elections.
-          Browse available classes below and send requests to join. Your requests must be approved by class administrators.
+          {userData?.isAdmin 
+            ? "As an admin, you can join multiple classes to manage them."
+            : "You can join one class to participate in its elections. Admins can join multiple classes."}
         </AlertDescription>
       </Alert>
       
@@ -215,32 +219,44 @@ const ClassBrowser = () => {
                     </CardContent>
                     <CardFooter>
                       {inClass ? (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" className="w-full">
-                              <LogOut className="h-3 w-3 mr-1" />
-                              Leave Class
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Leave Class?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to leave this class? You will need to request to join again if you want to participate in future elections.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleLeaveClass(classItem.id)}>
+                        userData?.isAdmin ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" className="w-full">
+                                <LogOut className="h-3 w-3 mr-1" />
                                 Leave Class
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Leave Class?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to leave this class? You will need to request to join again if you want to participate in future elections.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleLeaveClass(classItem.id)}>
+                                  Leave Class
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
+                          <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 w-full justify-center py-1">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Joined
+                          </Badge>
+                        )
                       ) : isPendingRequest(classItem.id) ? (
                         <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200 w-full justify-center py-1">
                           <Clock className="h-3 w-3 mr-1" />
                           Request Pending
+                        </Badge>
+                      ) : !canJoinMoreClasses() ? (
+                        <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200 w-full justify-center py-1">
+                          <Info className="h-3 w-3 mr-1" />
+                          Already in a Class
                         </Badge>
                       ) : (
                         <Button 
@@ -301,28 +317,35 @@ const ClassBrowser = () => {
                     </p>
                   </CardContent>
                   <CardFooter>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="w-full">
-                          <LogOut className="h-3 w-3 mr-1" />
-                          Leave Class
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Leave Class?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to leave this class? You will need to request to join again if you want to participate in future elections.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleLeaveClass(classItem.id)}>
+                    {userData?.isAdmin ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" className="w-full">
+                            <LogOut className="h-3 w-3 mr-1" />
                             Leave Class
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Leave Class?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to leave this class? You will need to request to join again if you want to participate in future elections.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleLeaveClass(classItem.id)}>
+                              Leave Class
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : (
+                      <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 w-full justify-center py-1">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Member
+                      </Badge>
+                    )}
                   </CardFooter>
                 </Card>
               ))}
