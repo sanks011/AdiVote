@@ -607,6 +607,9 @@ export const approveClassRequest = async (requestId: string) => {
     }
     const classData = classDoc.data();
     
+    // Create a timestamp that we can use in arrayUnion
+    const now = Timestamp.now();
+    
     // Start a batch write
     const batch = writeBatch(db);
     
@@ -631,7 +634,7 @@ export const approveClassRequest = async (requestId: string) => {
       classes: arrayUnion({
         id: classId,
         name: classData.name,
-        joinedAt: serverTimestamp(),
+        joinedAt: now, // Use the pre-created timestamp here
         role: 'member'
       }),
       updatedAt: serverTimestamp()
