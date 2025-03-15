@@ -259,7 +259,7 @@ useEffect(() => {
       {/* Chat container with reduced height, a top mask, and hidden scrollbar */}
       <div
         ref={messagesContainerRef}
-        className="w-full h-[300px] overflow-y-auto relative p-4 bg-slate-50/30 rounded-lg shadow-inner"
+        className="w-full h-[500px] overflow-y-auto relative p-4 bg-slate-50/30 rounded-lg shadow-inner"
         style={{
           maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
           msOverflowStyle: "none", // for IE and Edge
