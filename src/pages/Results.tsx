@@ -8,6 +8,7 @@ import { BarChart, ChevronsUp, Award, Users, Loader2, LockIcon, School } from 'l
 import { BarChart as RechartBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'react-hot-toast';
+import LiveChat from '../components/LiveChat';
 
 const Results = () => {
   const navigate = useNavigate();
@@ -154,7 +155,7 @@ const Results = () => {
   
   if (!settings?.resultsVisible) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+      <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-4 space-y-6">
         <Card className="max-w-lg w-full">
           <CardHeader>
             <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
@@ -170,6 +171,8 @@ const Results = () => {
             <Button onClick={() => navigate('/')}>Return to Home</Button>
           </CardContent>
         </Card>
+        {/* Live Chat Section */}
+        <LiveChat classId={selectedClassId as string} currentUser={currentUser} />
       </div>
     );
   }
