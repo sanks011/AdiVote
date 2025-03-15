@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { User } from 'firebase/auth';
 import { auth, getUserData, getAllClasses, getClassById } from '../lib/firebase';
@@ -13,6 +12,7 @@ interface AuthContextType {
   userClass: any | null;
   classes: any[] | null;
   refreshClasses: () => Promise<void>;
+  logOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,7 +24,8 @@ const AuthContext = createContext<AuthContextType>({
   refreshUserData: async () => {},
   userClass: null,
   classes: null,
-  refreshClasses: async () => {}
+  refreshClasses: async () => {},
+  logOut: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -76,6 +77,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const logOut = async () => {
+    try {
+      await auth.signOut();
+      setCurrentUser(null);
+      setUserData(null);
+      setIsAdmin(false);
+      setIsVerified(false);
+      setUserClass(null);
+      setClasses(null);
+    } catch (error) {
+      console.error("Error signing out:", error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
@@ -122,7 +138,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUserData,
     userClass,
     classes,
-    refreshClasses
+    refreshClasses,
+    logOut
   };
 
   return (

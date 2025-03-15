@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, User, onAuthStateChanged, reload } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit, writeBatch, increment, arrayUnion, arrayRemove, deleteField, serverTimestamp, addDoc } from 'firebase/firestore';
+import { getDatabase, ref as rtdbRef, onValue, set as rtdbSet, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
 
@@ -12,13 +13,15 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
 const storage = getStorage(app);
 
 // Authentication functions
@@ -358,133 +361,199 @@ export interface ClassRequest {
 
 export const requestToJoinClass = async (userId: string, classId: string) => {
   try {
-    // Check if user already has a pending request for this class
+    // Get user data
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+    const userData = userDoc.data();
+
+    // Get class data
+    const classDoc = await getDoc(doc(db, 'classes', classId));
+    if (!classDoc.exists()) {
+      throw new Error('Class not found');
+    }
+    const classData = classDoc.data();
+
+    // Check class membership restrictions for non-admin users
+    if (!userData.isAdmin) {
+      const userClasses = userData.classes || [];
+      if (userClasses.length > 0) {
+        throw new Error('You can only join one class at a time');
+      }
+    }
+
+    // Check if request already exists
     const requestsRef = collection(db, 'classRequests');
     const q = query(
-      requestsRef, 
+      requestsRef,
       where('userId', '==', userId),
       where('classId', '==', classId),
       where('status', '==', 'pending')
     );
-    
     const existingRequests = await getDocs(q);
+    
     if (!existingRequests.empty) {
-      toast.info('You already have a pending request for this class');
-      return null;
+      throw new Error('You already have a pending request for this class');
     }
-    
-    // Check if user is already in a class
-    const userData = await getUserData(userId);
-    if (userData?.classId) {
-      toast.error('You are already assigned to a class');
-      return null;
-    }
-    
-    // Create the request
-    const newRequestRef = doc(collection(db, 'classRequests'));
-    const request: ClassRequest = {
-      id: newRequestRef.id,
+
+    // Create new request
+    await addDoc(collection(db, 'classRequests'), {
       userId,
+      userName: userData.displayName || userData.email?.split('@')[0] || 'Unknown User',
+      userEmail: userData.email,
       classId,
+      className: classData.name,
       status: 'pending',
-      requestDate: Timestamp.now()
-    };
-    
-    await setDoc(newRequestRef, request);
-    toast.success('Class join request sent successfully');
-    return newRequestRef.id;
+      requestDate: serverTimestamp()
+    });
+
+    return true;
   } catch (error) {
     console.error('Error requesting to join class:', error);
-    toast.error('Failed to send class join request');
-    return null;
+    throw error;
   }
 };
 
 export const getClassRequests = async (classId: string) => {
   try {
     const requestsRef = collection(db, 'classRequests');
-    const q = query(
-      requestsRef,
-      where('classId', '==', classId),
-      where('status', '==', 'pending'),
-      orderBy('requestDate', 'desc')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const requests = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as ClassRequest[];
-    
-    // Add user details
-    for (const request of requests) {
-      if (request.userId) {
-        const userData = await getUserData(request.userId);
-        request.userName = userData?.displayName || userData?.email?.split('@')[0] || 'Unknown';
-        request.userEmail = userData?.email;
+    // Try the indexed query first
+    try {
+      const q = query(
+        requestsRef,
+        where('classId', '==', classId),
+        where('status', '==', 'pending'),
+        orderBy('requestDate', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const requests = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ClassRequest[];
+      
+      // Add user details
+      for (const request of requests) {
+        if (request.userId) {
+          const userData = await getUserData(request.userId);
+          request.userName = userData?.displayName || userData?.email?.split('@')[0] || 'Unknown';
+          request.userEmail = userData?.email;
+        }
       }
+      
+      return requests;
+    } catch (indexError) {
+      // If index is building, fall back to basic query
+      console.warn('Index building, falling back to basic query');
+      const basicQuery = query(
+        requestsRef,
+        where('classId', '==', classId),
+        where('status', '==', 'pending')
+      );
+      
+      const querySnapshot = await getDocs(basicQuery);
+      const requests = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ClassRequest[];
+      
+      // Add user details
+      for (const request of requests) {
+        if (request.userId) {
+          const userData = await getUserData(request.userId);
+          request.userName = userData?.displayName || userData?.email?.split('@')[0] || 'Unknown';
+          request.userEmail = userData?.email;
+        }
+      }
+      
+      return requests;
     }
-    
-    return requests;
   } catch (error) {
     console.error('Error getting class requests:', error);
     return [];
   }
 };
 
-export const getUserClassRequests = async (userId: string) => {
+export const getUserClassRequests = async (userId: string): Promise<ClassRequest[]> => {
   try {
     const requestsRef = collection(db, 'classRequests');
-    const q = query(requestsRef, where('userId', '==', userId), orderBy('requestDate', 'desc'));
-    
-    const querySnapshot = await getDocs(q);
-    const requests = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as ClassRequest[];
-    
-    // Add class details
-    for (const request of requests) {
-      if (request.classId) {
-        const classData = await getClassById(request.classId);
-        request.className = classData?.name || 'Unknown';
-      }
+    // Try the indexed query first
+    try {
+      const q = query(
+        requestsRef,
+        where('userId', '==', userId),
+        orderBy('requestDate', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ClassRequest[];
+    } catch (indexError) {
+      // If index is building, fall back to basic query
+      console.warn('Index building, falling back to basic query');
+      const basicQuery = query(
+        requestsRef,
+        where('userId', '==', userId)
+      );
+      const snapshot = await getDocs(basicQuery);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ClassRequest[];
     }
-    
-    return requests;
   } catch (error) {
     console.error('Error getting user class requests:', error);
-    return [];
+    return []; // Return empty array instead of throwing
   }
 };
 
 export const approveClassRequest = async (requestId: string) => {
   try {
     const requestRef = doc(db, 'classRequests', requestId);
-    const requestSnap = await getDoc(requestRef);
+    const requestDoc = await getDoc(requestRef);
     
-    if (!requestSnap.exists()) {
-      toast.error('Request not found');
-      return false;
+    if (!requestDoc.exists()) {
+      throw new Error('Request not found');
     }
     
-    const requestData = requestSnap.data() as ClassRequest;
+    const requestData = requestDoc.data() as ClassRequest;
+    const { userId, classId } = requestData;
     
-    // Add user to class
-    await addUserToClass(requestData.userId, requestData.classId);
+    // Get class details
+    const classDoc = await getDoc(doc(db, 'classes', classId));
+    if (!classDoc.exists()) {
+      throw new Error('Class not found');
+    }
+    const classData = classDoc.data();
+    
+    // Start a batch write
+    const batch = writeBatch(db);
     
     // Update request status
-    await updateDoc(requestRef, {
+    batch.update(requestRef, {
       status: 'approved',
       responseDate: Timestamp.now()
     });
     
-    toast.success('Class request approved');
+    // Add class to user's classes array with timestamp
+    const userRef = doc(db, 'users', userId);
+    batch.update(userRef, {
+      classes: arrayUnion({
+        id: classId,
+        name: classData.name,
+        joinedAt: Timestamp.now()
+      })
+    });
+    
+    // Commit the batch
+    await batch.commit();
+    
     return true;
   } catch (error) {
-    console.error('Error approving class request:', error);
-    toast.error('Failed to approve class request');
-    return false;
+    console.error('Error approving request:', error);
+    throw error;
   }
 };
 
@@ -589,13 +658,30 @@ export const addCandidate = async (candidate: Candidate) => {
 export const getClassCandidates = async (classId: string) => {
   try {
     const candidatesRef = collection(db, 'candidates');
-    const q = query(candidatesRef, where('classId', '==', classId), orderBy('name'));
-    const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Candidate[];
+    try {
+      // Try the indexed query first
+      const q = query(candidatesRef, where('classId', '==', classId), orderBy('name'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Candidate[];
+    } catch (indexError) {
+      // If index is building, fall back to basic query
+      console.warn('Index building, falling back to basic query');
+      const basicQuery = query(candidatesRef, where('classId', '==', classId));
+      const querySnapshot = await getDocs(basicQuery);
+      
+      // Sort the results in memory
+      const candidates = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Candidate[];
+      
+      return candidates.sort((a, b) => a.name.localeCompare(b.name));
+    }
   } catch (error) {
     console.error('Error getting class candidates:', error);
     return [];
@@ -603,58 +689,69 @@ export const getClassCandidates = async (classId: string) => {
 };
 
 // Update voting functions to include classId
-export const castVote = async (userId: string, candidateId: string, classId: string) => {
+export const castVote = async (userId: string, candidateId: string, classId: string): Promise<boolean> => {
   try {
-    // Check if user has already voted
     const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    const userDoc = await getDoc(userRef);
     
-    if (userSnap.exists() && userSnap.data().hasVoted) {
-      toast.error('You have already cast your vote');
+    if (!userDoc.exists()) {
+      toast.error('User not found');
       return false;
     }
     
-    // Check if voting is enabled
-    const settingsRef = doc(db, 'settings', 'election');
-    const settingsSnap = await getDoc(settingsRef);
+    const userData = userDoc.data();
     
-    if (settingsSnap.exists() && !settingsSnap.data().votingEnabled) {
-      toast.error('Voting is currently disabled');
-      return false;
-    }
-    
-    // Check if user belongs to the class
-    if (userSnap.exists() && userSnap.data().classId !== classId) {
-      toast.error('You can only vote in your assigned class');
-      return false;
-    }
-    
-    // Create vote record
+    // Check if user has already voted in this class
     const votesRef = collection(db, 'votes');
-    await setDoc(doc(votesRef), {
+    const existingVoteQuery = query(
+      votesRef,
+      where('userId', '==', userId),
+      where('classId', '==', classId)
+    );
+    const existingVoteSnap = await getDocs(existingVoteQuery);
+    
+    if (!existingVoteSnap.empty) {
+      toast.error('You have already voted in this class for this session');
+      return false;
+    }
+    
+    // Get candidate
+    const candidateRef = doc(db, 'candidates', candidateId);
+    const candidateDoc = await getDoc(candidateRef);
+    
+    if (!candidateDoc.exists()) {
+      toast.error('Candidate not found');
+      return false;
+    }
+    
+    // Check if candidate belongs to the correct class
+    const candidateData = candidateDoc.data();
+    if (candidateData.classId !== classId) {
+      toast.error('Invalid candidate for this class');
+      return false;
+    }
+    
+    const batch = writeBatch(db);
+    
+    // Update candidate votes
+    batch.update(candidateRef, {
+      votes: increment(1)
+    });
+    
+    // Add vote record
+    const voteRef = doc(collection(db, 'votes'));
+    batch.set(voteRef, {
       userId,
       candidateId,
       classId,
-      timestamp: Timestamp.now()
+      timestamp: serverTimestamp()
     });
     
-    // Update candidate votes
-    const candidateRef = doc(db, 'candidates', candidateId);
-    await updateDoc(candidateRef, {
-      votes: (await getDoc(candidateRef)).data()?.votes + 1 || 1
-    });
-    
-    // Mark user as voted
-    await updateDoc(userRef, {
-      hasVoted: true,
-      votedAt: Timestamp.now(),
-      votedFor: candidateId
-    });
-    
-    toast.success('Your vote has been cast');
+    await batch.commit();
+    toast.success('Your vote has been cast successfully');
     return true;
   } catch (error) {
-    console.error('Error casting vote: ', error);
+    console.error('Error casting vote:', error);
     toast.error('Failed to cast vote');
     return false;
   }
@@ -671,67 +768,361 @@ export const getTotalVotes = async () => {
   }
 };
 
-// Election settings functions
+// Election settings interfaces
 export interface ElectionSettings {
   votingEnabled: boolean;
   resultsVisible: boolean;
-  startDate?: Timestamp;
-  endDate?: Timestamp;
+  startDate: Timestamp | null;
+  endDate: Timestamp | null;
   electionTitle: string;
   electionDescription: string;
+}
+
+export interface ClassElectionSettings extends ElectionSettings {
+  classId: string;
 }
 
 export const getElectionSettings = async () => {
   try {
     const settingsRef = doc(db, 'settings', 'election');
-    const settingsSnap = await getDoc(settingsRef);
+    const settingsDoc = await getDoc(settingsRef);
     
-    if (settingsSnap.exists()) {
-      return settingsSnap.data() as ElectionSettings;
-    } else {
-      // Initialize with default settings
+    if (!settingsDoc.exists()) {
+      // Initialize default settings
       const defaultSettings: ElectionSettings = {
         votingEnabled: false,
         resultsVisible: false,
-        electionTitle: 'CR Election',
+        startDate: null,
+        endDate: null,
+        electionTitle: 'Class Election',
         electionDescription: 'Vote for your Class Representative'
       };
       
       await setDoc(settingsRef, defaultSettings);
       return defaultSettings;
     }
+    
+    return settingsDoc.data() as ElectionSettings;
   } catch (error) {
-    console.error('Error getting election settings: ', error);
+    console.error('Error getting election settings:', error);
     return null;
   }
 };
 
-export const updateElectionSettings = async (settings: Partial<ElectionSettings>) => {
+export const updateElectionSettings = async (settings: Partial<ElectionSettings>): Promise<void> => {
   try {
     const settingsRef = doc(db, 'settings', 'election');
-    await updateDoc(settingsRef, {
-      ...settings,
-      updatedAt: Timestamp.now()
-    });
-    toast.success('Election settings updated');
-    return true;
+    await updateDoc(settingsRef, settings);
+    toast.success('Election settings updated successfully');
   } catch (error) {
-    console.error('Error updating election settings: ', error);
+    console.error('Error updating election settings:', error);
     toast.error('Failed to update election settings');
-    return false;
+    throw error;
   }
 };
 
 // Storage functions
 export const uploadImage = async (file: File, path: string) => {
   try {
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
+    const timestamp = Date.now();
+    const uniqueFilename = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    const fullPath = `${path}/${uniqueFilename}`;
+    
+    const storageRef = ref(storage, fullPath);
+    
+    // Set metadata to handle CORS
+    const metadata = {
+      contentType: file.type,
+      customMetadata: {
+        'Access-Control-Allow-Origin': '*'
+      }
+    };
+    
+    // Upload the file with metadata
+    const snapshot = await uploadBytes(storageRef, file, metadata);
+    
+    // Get the download URL
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    if (!downloadURL) {
+      throw new Error('Failed to get download URL');
+    }
+    
     return downloadURL;
   } catch (error) {
-    console.error('Error uploading image: ', error);
+    console.error('Error uploading image:', error);
+    toast.error('Failed to upload image. Please try again.');
     return null;
+  }
+};
+
+export const leaveClass = async (userId: string, classId: string) => {
+  try {
+    // Check user role
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+    const userData = userDoc.data();
+
+    // Only admins can leave classes
+    if (!userData.isAdmin) {
+      throw new Error('Only administrators can leave classes');
+    }
+
+    // Get current classes array
+    const currentClasses = userData.classes || [];
+    const updatedClasses = currentClasses.filter((cls: any) => cls.id !== classId);
+
+    const batch = writeBatch(db);
+    
+    // Update user document with filtered classes array
+    batch.update(doc(db, 'users', userId), {
+      classes: updatedClasses
+    });
+    
+    // Remove any pending requests
+    const requestsRef = collection(db, 'classRequests');
+    const requestsQuery = query(requestsRef, where('userId', '==', userId), where('classId', '==', classId));
+    const requestsSnap = await getDocs(requestsQuery);
+    
+    requestsSnap.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    
+    await batch.commit();
+    toast.success('Successfully left the class');
+    return true;
+  } catch (error) {
+    console.error('Error leaving class:', error);
+    toast.error(error instanceof Error ? error.message : 'Failed to leave class');
+    return false;
+  }
+};
+
+export const getUserClasses = async (userId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return [];
+    }
+    
+    const userData = userDoc.data();
+    
+    // If user has no classes array, return empty array
+    if (!userData.classes) {
+      return [];
+    }
+    
+    // Get full class details for each class ID
+    const classPromises = userData.classes.map(async (classRef: { id: string }) => {
+      const classDoc = await getDoc(doc(db, 'classes', classRef.id));
+      if (classDoc.exists()) {
+        return {
+          id: classDoc.id,
+          ...classDoc.data()
+        };
+      }
+      return null;
+    });
+    
+    const classes = await Promise.all(classPromises);
+    return classes.filter(Boolean); // Remove any null values
+  } catch (error) {
+    console.error('Error getting user classes:', error);
+    return [];
+  }
+};
+
+export const subscribeToElectionStatus = (classId: string, callback: (settings: ElectionSettings) => void) => {
+  const db = getDatabase();
+  const electionRef = rtdbRef(db, `elections/${classId}`);
+  
+  const unsubscribe = onValue(electionRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      // Convert ISO date strings back to Date objects
+      const settings: ElectionSettings = {
+        ...data,
+        startDate: data.startDate ? Timestamp.fromDate(new Date(data.startDate)) : null,
+        endDate: data.endDate ? Timestamp.fromDate(new Date(data.endDate)) : null
+      };
+      callback(settings);
+    }
+  });
+  
+  return unsubscribe;
+};
+
+export const updateElectionStatusRealtime = async (classId: string, settings: Partial<ElectionSettings>) => {
+  const db = getDatabase();
+  const electionRef = rtdbRef(db, `elections/${classId}`);
+  
+  // Convert Timestamps to ISO strings for storage in RTDB, handling null/undefined values
+  const rtdbSettings = {
+    ...settings,
+    startDate: settings.startDate ? settings.startDate.toDate().toISOString() : null,
+    endDate: settings.endDate ? settings.endDate.toDate().toISOString() : null,
+    lastUpdated: rtdbServerTimestamp()
+  };
+  
+  // Remove any undefined values before setting
+  Object.keys(rtdbSettings).forEach(key => {
+    if (rtdbSettings[key] === undefined) {
+      delete rtdbSettings[key];
+    }
+  });
+  
+  await rtdbSet(electionRef, rtdbSettings);
+};
+
+export const getClassElectionSettings = async (classId: string): Promise<ClassElectionSettings | null> => {
+  try {
+    const settingsRef = doc(db, 'settings', `election_${classId}`);
+    const settingsDoc = await getDoc(settingsRef);
+    
+    if (!settingsDoc.exists()) {
+      // Initialize default settings for the class
+      const defaultSettings: ClassElectionSettings = {
+        classId,
+        votingEnabled: false,
+        resultsVisible: false,
+        startDate: null,
+        endDate: null,
+        electionTitle: 'Class Election',
+        electionDescription: 'Vote for your Class Representative'
+      };
+      
+      await setDoc(settingsRef, defaultSettings);
+      return defaultSettings;
+    }
+    
+    return { ...settingsDoc.data(), classId } as ClassElectionSettings;
+  } catch (error) {
+    console.error('Error getting class election settings:', error);
+    return null;
+  }
+};
+
+export const updateClassElectionSettings = async (classId: string, settings: Partial<ElectionSettings>): Promise<void> => {
+  try {
+    // Update Firestore
+    const settingsRef = doc(db, 'settings', `election_${classId}`);
+    await updateDoc(settingsRef, {
+      ...settings,
+      updatedAt: serverTimestamp()
+    });
+
+    // Update Realtime Database
+    await updateElectionStatusRealtime(classId, settings);
+    
+    toast.success('Election settings updated successfully');
+  } catch (error) {
+    console.error('Error updating class election settings:', error);
+    toast.error('Failed to update election settings');
+    throw error;
+  }
+};
+
+export const resetClassVotes = async (classId: string): Promise<boolean> => {
+  try {
+    const batch = writeBatch(db);
+    
+    // 1. Reset all candidate votes in this class
+    const candidatesRef = collection(db, 'candidates');
+    const candidatesQuery = query(candidatesRef, where('classId', '==', classId));
+    const candidatesSnapshot = await getDocs(candidatesQuery);
+    
+    candidatesSnapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { votes: 0 });
+    });
+    
+    // 2. Reset voting status for all users in this class
+    const usersRef = collection(db, 'users');
+    const usersQuery = query(usersRef, where('votedInClass', '==', classId));
+    const usersSnapshot = await getDocs(usersQuery);
+    
+    usersSnapshot.docs.forEach(doc => {
+      batch.update(doc.ref, {
+        hasVoted: false,
+        votedFor: deleteField(),
+        votedInClass: deleteField(),
+        votedAt: deleteField()
+      });
+    });
+    
+    // 3. Delete all vote records for this class
+    const votesRef = collection(db, 'votes');
+    const votesQuery = query(votesRef, where('classId', '==', classId));
+    const votesSnapshot = await getDocs(votesQuery);
+    
+    votesSnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    
+    // 4. Reset election settings
+    const settingsRef = doc(db, 'settings', `election_${classId}`);
+    batch.update(settingsRef, {
+      votingEnabled: false,
+      resultsVisible: false,
+      startDate: null,
+      endDate: null,
+      updatedAt: serverTimestamp()
+    });
+    
+    // 5. Reset realtime database election status
+    const electionStatusRef = rtdbRef(rtdb, `elections/${classId}`);
+    await rtdbSet(electionStatusRef, {
+      votingEnabled: false,
+      resultsVisible: false,
+      startDate: null,
+      endDate: null,
+      lastUpdated: rtdbServerTimestamp()
+    });
+    
+    await batch.commit();
+    toast.success('Election data reset successfully');
+    return true;
+  } catch (error) {
+    console.error('Error resetting class votes:', error);
+    toast.error('Failed to reset election data');
+    return false;
+  }
+};
+
+export const getPendingRequests = async (userId: string): Promise<ClassRequest[]> => {
+  try {
+    const requestsRef = collection(db, 'classRequests');
+    const requestsQuery = query(
+      requestsRef,
+      where('userId', '==', userId),
+      where('status', '==', 'pending')
+    );
+    
+    const snapshot = await getDocs(requestsQuery);
+    const requests: ClassRequest[] = [];
+    
+    for (const docSnapshot of snapshot.docs) {
+      const request = { id: docSnapshot.id, ...docSnapshot.data() } as ClassRequest;
+      
+      // Get class name if not already included
+      if (!request.className && request.classId) {
+        const classDoc = await getDoc(doc(db, 'classes', request.classId));
+        if (classDoc.exists()) {
+          const classData = classDoc.data() as Class;
+          request.className = classData.name;
+        }
+      }
+      
+      requests.push(request);
+    }
+    
+    return requests;
+  } catch (error) {
+    console.error('Error getting pending requests:', error);
+    throw new Error('Failed to get pending requests');
   }
 };
 

@@ -1,16 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getClassCandidates, getElectionSettings, getTotalVotes } from '../lib/firebase';
+import { getClassCandidates, getElectionSettings, getTotalVotes, getUserClasses, getClassElectionSettings } from '../lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart, ChevronsUp, Award, Users, Loader2, LockIcon } from 'lucide-react';
+import { BarChart, ChevronsUp, Award, Users, Loader2, LockIcon, School } from 'lucide-react';
 import { BarChart as RechartBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'react-hot-toast';
 
 const Results = () => {
   const navigate = useNavigate();
-  const { userData, userClass } = useAuth();
+  const { currentUser, userClass } = useAuth();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>(null);
   const [totalVotes, setTotalVotes] = useState(0);
@@ -18,25 +19,59 @@ const Results = () => {
   const [winner, setWinner] = useState<any>(null);
   const [chartData, setChartData] = useState<any[]>([]);
   const [error, setError] = useState('');
+  const [userClasses, setUserClasses] = useState<any[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const fetchUserClasses = async () => {
+      try {
+        if (!currentUser) return;
+        const classes = await getUserClasses(currentUser.uid);
+        setUserClasses(classes);
+        
+        // If user has only one class, select it automatically
+        if (classes.length === 1) {
+          setSelectedClassId(classes[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching user classes:', error);
+        toast.error('Failed to load your classes');
+      }
+    };
+    
+    fetchUserClasses();
+  }, [currentUser]);
   
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (!userData?.classId) {
-          setError('No class selected');
+        setLoading(true);
+        setError('');
+        
+        if (!selectedClassId) {
           setLoading(false);
           return;
         }
         
-        const [candidatesList, electionSettings, votes] = await Promise.all([
-          getClassCandidates(userData.classId),
-          getElectionSettings(),
-          getTotalVotes()
+        // Get election settings first
+        const electionSettings = await getClassElectionSettings(selectedClassId);
+        if (!electionSettings) {
+          throw new Error('Failed to load election settings');
+        }
+        
+        setSettings(electionSettings);
+        
+        // Only fetch results if they're visible
+        if (!electionSettings.resultsVisible) {
+          setLoading(false);
+          return;
+        }
+        
+        const [candidatesList] = await Promise.all([
+          getClassCandidates(selectedClassId)
         ]);
         
         setCandidates(candidatesList);
-        setSettings(electionSettings);
-        setTotalVotes(votes);
         
         // Find the winner
         if (candidatesList.length > 0) {
@@ -44,6 +79,13 @@ const Results = () => {
             (b.votes || 0) - (a.votes || 0)
           );
           setWinner(sortedCandidates[0]);
+          
+          // Calculate total votes
+          let totalVotes = 0;
+          candidatesList.forEach(candidate => {
+            totalVotes += candidate.votes || 0;
+          });
+          setTotalVotes(totalVotes);
           
           // Prepare chart data
           const data = candidatesList.map(candidate => ({
@@ -62,7 +104,7 @@ const Results = () => {
     };
     
     fetchData();
-  }, [userData]);
+  }, [selectedClassId]);
   
   if (loading) {
     return (
@@ -71,6 +113,41 @@ const Results = () => {
           <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
           <h3 className="text-xl font-medium">Loading results...</h3>
         </div>
+      </div>
+    );
+  }
+  
+  if (!selectedClassId) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <Card className="max-w-lg w-full">
+          <CardHeader>
+            <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <School className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle className="text-2xl text-center">Select a Class</CardTitle>
+            <CardDescription className="text-center">
+              Please select a class to view its election results
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Select
+              value={selectedClassId || undefined}
+              onValueChange={setSelectedClassId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a class" />
+              </SelectTrigger>
+              <SelectContent>
+                {userClasses.map((cls) => (
+                  <SelectItem key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
       </div>
     );
   }

@@ -1,40 +1,73 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getAllClasses, requestToJoinClass, getUserClassRequests, ClassRequest } from '../lib/firebase';
+import { 
+  getAllClasses, 
+  requestToJoinClass, 
+  getUserClassRequests, 
+  ClassRequest,
+  leaveClass,
+  getUserClasses,
+  getPendingRequests
+} from '../lib/firebase';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, School, Check, X, Clock, Users, Info } from 'lucide-react';
+import { Loader2, School, Check, X, Clock, Users, Info, LogOut, CheckCircle, UserPlus, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Alert,
-  AlertDescription,
   AlertTitle,
+  AlertDescription
 } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const ClassBrowser = () => {
-  const { currentUser, userData, userClass, refreshUserData } = useAuth();
+  const { currentUser } = useAuth();
   const [classes, setClasses] = useState<any[]>([]);
-  const [userRequests, setUserRequests] = useState<ClassRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [requestingClasses, setRequestingClasses] = useState<{ [key: string]: boolean }>({});
+  const [userClasses, setUserClasses] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<string[]>([]);
+  const [userRequests, setUserRequests] = useState<ClassRequest[]>([]);
   
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [allClasses, requests] = await Promise.all([
-          getAllClasses(),
-          currentUser ? getUserClassRequests(currentUser.uid) : []
-        ]);
+        setError('');
         
+        if (!currentUser) return;
+        
+        // Get all classes
+        const allClasses = await getAllClasses();
         setClasses(allClasses);
+        
+        // Get user's classes
+        const userClassList = await getUserClasses(currentUser.uid);
+        setUserClasses(userClassList);
+        
+        // Get user's requests
+        const requests = await getUserClassRequests(currentUser.uid);
         setUserRequests(requests);
-      } catch (error) {
-        console.error('Error fetching classes:', error);
-        toast.error('Failed to load classes. Please try again later.');
+        
+        // Get pending requests
+        const pendingReqs = await getPendingRequests(currentUser.uid);
+        setPendingRequests(pendingReqs.map(req => req.classId));
+      } catch (err) {
+        console.error('Error fetching classes:', err);
+        setError('Failed to load classes');
       } finally {
         setLoading(false);
       }
@@ -43,70 +76,81 @@ const ClassBrowser = () => {
     fetchData();
   }, [currentUser]);
   
-  const handleRequestJoin = async (classId: string) => {
-    if (!currentUser) {
-      toast.error('You must be logged in to join a class');
-      return;
-    }
+  const handleJoinRequest = async (classId: string) => {
+    if (!currentUser) return;
     
     try {
-      setSubmitting(true);
+      setRequestingClasses(prev => ({ ...prev, [classId]: true }));
+      
       await requestToJoinClass(currentUser.uid, classId);
       
-      // Refresh requests
-      const requests = await getUserClassRequests(currentUser.uid);
-      setUserRequests(requests);
+      // Update pending requests
+      setPendingRequests(prev => [...prev, classId]);
       
-      toast.success('Request to join class sent successfully');
-    } catch (error) {
-      console.error('Error requesting to join class:', error);
-      toast.error('Failed to send join request. Please try again.');
+      toast.success('Join request sent successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send join request');
     } finally {
-      setSubmitting(false);
+      setRequestingClasses(prev => ({ ...prev, [classId]: false }));
+    }
+  };
+
+  const handleLeaveClass = async (classId: string) => {
+    if (!currentUser) {
+      toast.error('You must be logged in to leave a class');
+      return;
+    }
+
+    try {
+      setRequestingClasses(prev => ({ ...prev, [classId]: true }));
+      await leaveClass(currentUser.uid, classId);
+      
+      // Refresh user classes
+      const updatedClasses = await getUserClasses(currentUser.uid);
+      setUserClasses(updatedClasses);
+      
+      toast.success('Successfully left the class');
+    } catch (error) {
+      console.error('Error leaving class:', error);
+      toast.error('Failed to leave class. Please try again.');
+    } finally {
+      setRequestingClasses(prev => ({ ...prev, [classId]: false }));
     }
   };
   
   const getRequestStatus = (classId: string) => {
+    if (!userRequests) return null;
     const request = userRequests.find(req => req.classId === classId);
     return request ? request.status : null;
+  };
+
+  const isUserInClass = (classId: string) => {
+    return userClasses.some(cls => cls.id === classId);
+  };
+  
+  const isClassJoined = (classId: string) => {
+    return userClasses.some(cls => cls.id === classId);
+  };
+  
+  const isPendingRequest = (classId: string) => {
+    return pendingRequests.includes(classId);
   };
   
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-60">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
   
-  // If user is already in a class, show their current class
-  if (userClass) {
+  if (error) {
     return (
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Current Class</CardTitle>
-            <CardDescription>
-              You are currently a member of this class
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <School className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">{userClass.name}</h3>
-                <p className="text-sm text-gray-500">{userClass.description || 'No description available'}</p>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <p className="text-sm text-gray-500">
-              Contact your administrator if you need to be moved to a different class.
-            </p>
-          </CardFooter>
-        </Card>
+      <div className="flex items-center justify-center py-12">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -115,10 +159,10 @@ const ClassBrowser = () => {
     <div className="space-y-6">
       <Alert className="bg-blue-50 border-blue-200">
         <Info className="h-5 w-5 text-blue-500" />
-        <AlertTitle>Join a Class to Participate</AlertTitle>
+        <AlertTitle>Join Multiple Classes</AlertTitle>
         <AlertDescription>
-          You must join a class to view election information and vote for candidates. 
-          Browse available classes below and send a request to join. Your request must be approved by a class administrator.
+          You can now join multiple classes to participate in different elections.
+          Browse available classes below and send requests to join. Your requests must be approved by class administrators.
         </AlertDescription>
       </Alert>
       
@@ -126,6 +170,9 @@ const ClassBrowser = () => {
         <TabsList className="mb-4 w-full md:w-auto">
           <TabsTrigger value="browse" className="flex-1 md:flex-initial">
             <Users className="h-4 w-4 mr-2" /> Browse Classes
+          </TabsTrigger>
+          <TabsTrigger value="myclasses" className="flex-1 md:flex-initial">
+            <School className="h-4 w-4 mr-2" /> My Classes
           </TabsTrigger>
           <TabsTrigger value="requests" className="flex-1 md:flex-initial">
             <Clock className="h-4 w-4 mr-2" /> My Requests
@@ -143,6 +190,7 @@ const ClassBrowser = () => {
             ) : (
               classes.map((classItem) => {
                 const requestStatus = getRequestStatus(classItem.id);
+                const inClass = isUserInClass(classItem.id);
                 
                 return (
                   <Card key={classItem.id} className="transition-all hover:shadow-md">
@@ -165,30 +213,43 @@ const ClassBrowser = () => {
                         Admin: {classItem.adminName || 'Unknown'}
                       </p>
                     </CardContent>
-                    <CardFooter className="border-t bg-gray-50 p-3">
-                      {requestStatus === 'pending' ? (
+                    <CardFooter>
+                      {inClass ? (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" className="w-full">
+                              <LogOut className="h-3 w-3 mr-1" />
+                              Leave Class
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Leave Class?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to leave this class? You will need to request to join again if you want to participate in future elections.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleLeaveClass(classItem.id)}>
+                                Leave Class
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      ) : isPendingRequest(classItem.id) ? (
                         <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200 w-full justify-center py-1">
                           <Clock className="h-3 w-3 mr-1" />
                           Request Pending
                         </Badge>
-                      ) : requestStatus === 'approved' ? (
-                        <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 w-full justify-center py-1">
-                          <Check className="h-3 w-3 mr-1" />
-                          Approved
-                        </Badge>
-                      ) : requestStatus === 'rejected' ? (
-                        <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 w-full justify-center py-1">
-                          <X className="h-3 w-3 mr-1" />
-                          Rejected
-                        </Badge>
                       ) : (
                         <Button 
-                          onClick={() => handleRequestJoin(classItem.id)} 
-                          disabled={submitting}
+                          onClick={() => handleJoinRequest(classItem.id)} 
+                          disabled={requestingClasses[classItem.id]}
                           size="sm"
                           className="w-full"
                         >
-                          {submitting ? (
+                          {requestingClasses[classItem.id] ? (
                             <>
                               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                               Sending Request...
@@ -207,6 +268,66 @@ const ClassBrowser = () => {
               })
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="myclasses">
+          {userClasses.length === 0 ? (
+            <div className="text-center p-8 border rounded-md bg-gray-50">
+              <School className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-500 font-medium">No Classes Joined</p>
+              <p className="text-sm text-gray-400 mt-1">Browse and join classes to participate in elections</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {userClasses.map((classItem) => (
+                <Card key={classItem.id} className="transition-all hover:shadow-md">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle>{classItem.name}</CardTitle>
+                        <CardDescription>
+                          {classItem.description || 'No description available'}
+                        </CardDescription>
+                      </div>
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <School className="h-4 w-4 text-primary" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-500 flex items-center">
+                      <Users className="h-4 w-4 mr-1 text-gray-400" />
+                      Admin: {classItem.adminName || 'Unknown'}
+                    </p>
+                  </CardContent>
+                  <CardFooter>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" className="w-full">
+                          <LogOut className="h-3 w-3 mr-1" />
+                          Leave Class
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Leave Class?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to leave this class? You will need to request to join again if you want to participate in future elections.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleLeaveClass(classItem.id)}>
+                            Leave Class
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
         
         <TabsContent value="requests">
@@ -233,24 +354,22 @@ const ClassBrowser = () => {
                           </p>
                         </div>
                       </div>
-                      <div>
-                        {request.status === 'pending' ? (
-                          <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Pending
-                          </Badge>
-                        ) : request.status === 'approved' ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
-                            <Check className="h-3 w-3 mr-1" />
-                            Approved
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
-                            <X className="h-3 w-3 mr-1" />
-                            Rejected
-                          </Badge>
-                        )}
-                      </div>
+                      {request.status === 'pending' ? (
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Pending
+                        </Badge>
+                      ) : request.status === 'approved' ? (
+                        <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+                          <Check className="h-3 w-3 mr-1" />
+                          Approved
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
+                          <X className="h-3 w-3 mr-1" />
+                          Rejected
+                        </Badge>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

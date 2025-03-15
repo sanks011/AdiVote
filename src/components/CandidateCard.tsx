@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Candidate } from '../lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -7,24 +6,21 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface CandidateCardProps {
   candidate: Candidate;
-  selectedCandidate: string | null;
-  onSelect: (id: string) => void;
-  hasVoted: boolean;
-  votingEnabled: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
+  disabled: boolean;
   showResults: boolean;
   totalVotes: number;
 }
 
 const CandidateCard: React.FC<CandidateCardProps> = ({
   candidate,
-  selectedCandidate,
+  isSelected,
   onSelect,
-  hasVoted,
-  votingEnabled,
+  disabled,
   showResults,
   totalVotes
 }) => {
-  const isSelected = selectedCandidate === candidate.id;
   const votePercentage = totalVotes > 0 && candidate.votes 
     ? Math.round((candidate.votes / totalVotes) * 100)
     : 0;
@@ -34,11 +30,11 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
       className={`
         relative overflow-hidden rounded-xl border bg-white p-6 shadow-sm transition-all duration-300
         ${isSelected ? 'ring-2 ring-primary border-transparent' : ''}
-        ${!hasVoted && votingEnabled ? 'hover:shadow-md cursor-pointer' : ''}
+        ${!disabled ? 'hover:shadow-md cursor-pointer' : ''}
       `}
       onClick={() => {
-        if (!hasVoted && votingEnabled) {
-          onSelect(candidate.id || '');
+        if (!disabled) {
+          onSelect();
         }
       }}
     >
@@ -61,7 +57,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
         <p className="text-sm text-gray-600 line-clamp-3">{candidate.bio}</p>
       </div>
       
-      {showResults && candidate.votes !== undefined && (
+      {showResults && (
         <div className="mt-4">
           <div className="w-full bg-gray-100 rounded-full h-2.5">
             <div 
@@ -76,20 +72,20 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
         </div>
       )}
       
-      {!hasVoted && votingEnabled && (
+      {!disabled && (
         <Button
           className="w-full mt-4"
           variant={isSelected ? "default" : "outline"}
           onClick={(e) => {
             e.stopPropagation();
-            onSelect(candidate.id || '');
+            onSelect();
           }}
         >
           {isSelected ? 'Selected' : 'Select'}
         </Button>
       )}
       
-      {hasVoted && !showResults && (
+      {disabled && !showResults && (
         <div className="mt-4 text-center text-sm text-gray-500">
           You have already voted
         </div>
