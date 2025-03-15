@@ -1,6 +1,5 @@
-// Update this page with advanced UI/UX while keeping core functionality
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { 
@@ -9,7 +8,7 @@ import {
   Clock, 
   Users, 
   ShieldCheck, 
-  ArrowRight, 
+  ArrowRight,
   ExternalLink, 
   Check,
   ChevronDown,
@@ -41,7 +40,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getElectionSettings, getTotalVotes } from "../lib/firebase";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue, useMotionTemplate } from "framer-motion";
+import { motion, useScroll, useSpring } from "framer-motion";
 
 // Custom styles with enhanced animations
 const customStyles = `
@@ -261,7 +260,7 @@ const Index = () => {
   const scaleX = useSpring(scrollYProgress, {
     stiffness: 100,
     damping: 30,
-    restDelta: 0.001
+    restDelta: 0.001,
   });
 
   // Mouse parallax effect
@@ -269,12 +268,11 @@ const Index = () => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({
         x: (e.clientX / window.innerWidth - 0.5) * 20,
-        y: (e.clientY / window.innerHeight - 0.5) * 20
+        y: (e.clientY / window.innerHeight - 0.5) * 20,
       });
     };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
   useEffect(() => {
@@ -284,19 +282,18 @@ const Index = () => {
         const votes = await getTotalVotes();
         setSettings(electionSettings);
         setTotalVotes(votes);
-        setLoading(false);
       } catch (error) {
         console.error("Error fetching election data:", error);
+      } finally {
         setLoading(false);
       }
     };
-
     fetchElectionData();
   }, []);
 
-  // Add styles to document head
+  // Inject custom styles once
   useEffect(() => {
-    const styleElement = document.createElement('style');
+    const styleElement = document.createElement("style");
     styleElement.textContent = customStyles;
     document.head.appendChild(styleElement);
     return () => {
@@ -312,133 +309,703 @@ const Index = () => {
     }
   };
 
+  // Memoize background particles data to avoid recalculating on each render
+  const particles = useMemo(() => {
+    return Array.from({ length: 30 }).map((_, i) => ({
+      key: i,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      animate: {
+        x: [0, Math.random() * 100 - 50],
+        y: [0, Math.random() * 100 - 50],
+        scale: [1, Math.random() * 0.5 + 0.5],
+        opacity: [0.5, 0.2],
+      },
+      transition: {
+        duration: Math.random() * 3 + 2,
+        repeat: Infinity,
+        repeatType: "reverse",
+      },
+    }));
+  }, []);
+
   return (
     <>
-    <motion.main 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-b from-white to-[#F3F6F8] overflow-hidden"
-    >
-      {/* Progress bar */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-[#33CC33] origin-left z-50"
-        style={{ scaleX }}
-      />
+      <motion.main 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="min-h-screen bg-gradient-to-b from-white to-[#F3F6F8] overflow-hidden"
+      >
+        {/* Progress bar */}
+        <motion.div
+          className="fixed top-0 left-0 right-0 h-1 bg-[#33CC33] origin-left z-50"
+          style={{ scaleX }}
+        />
 
-      {/* Interactive background particles */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 bg-[#F3F6F8]/50" />
-        {Array.from({ length: 30 }).map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-2 h-2 bg-[#33CC33]/10 rounded-full"
-            animate={{
-              x: [0, Math.random() * 100 - 50],
-              y: [0, Math.random() * 100 - 50],
-              scale: [1, Math.random() * 0.5 + 0.5],
-              opacity: [0.5, 0.2],
-            }}
-            transition={{
-              duration: Math.random() * 3 + 2,
-              repeat: Infinity,
-              repeatType: "reverse",
-            }}
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-          />
-        ))}
-        <div className="aurora" style={{ left: '50%', top: '50%' }} />
-      </div>
-
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center py-20 px-4">
-        <div className="max-w-6xl mx-auto relative">
-          <motion.div
-            className="absolute -top-20 -left-20 w-64 h-64 bg-[#33CC33]/10 rounded-full blur-3xl"
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.5, 0.3],
-            }}
-            transition={{
-              duration: 4,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-          <motion.div
-            className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#2ecc71]/10 rounded-full blur-3xl"
-            animate={{
-              scale: [1.2, 1, 1.2],
-              opacity: [0.5, 0.3, 0.5],
-            }}
-            transition={{
-              duration: 4,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-
-          <div className="relative grid md:grid-cols-2 gap-12 items-center">
-            {/* Left Column - Text Content */}
+        {/* Interactive background particles */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute inset-0 bg-[#F3F6F8]/50" />
+          {particles.map((p) => (
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
+              key={p.key}
+              className="absolute w-2 h-2 bg-[#33CC33]/10 rounded-full"
+              animate={p.animate}
+              transition={p.transition}
+              style={{ left: p.left, top: p.top }}
+            />
+          ))}
+          <div className="aurora" style={{ left: "50%", top: "50%" }} />
+        </div>
+
+        {/* Hero Section */}
+        <section className="relative min-h-screen flex items-center justify-center py-20 px-4">
+          <div className="max-w-6xl mx-auto relative">
+            <motion.div
+              className="absolute -top-20 -left-20 w-64 h-64 bg-[#33CC33]/10 rounded-full blur-3xl"
+              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#2ecc71]/10 rounded-full blur-3xl"
+              animate={{ scale: [1.2, 1, 1.2], opacity: [0.5, 0.3, 0.5] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            />
+
+            <div className="relative grid md:grid-cols-2 gap-12 items-center">
+              {/* Left Column - Text Content */}
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8 }}
+                className="text-center md:text-left"
+              >
+                <motion.div
+                  className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-6"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <motion.div 
+                    className="relative w-3 h-3"
+                    animate={{ scale: [1, 1.2, 1], opacity: [1, 0.8, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <div className="absolute inset-0 rounded-full bg-[#33CC33]" />
+                    <div className="absolute inset-0 rounded-full bg-[#33CC33] animate-ping" />
+                  </motion.div>
+                  <span className="ml-2 text-[#33CC33] font-medium">
+                    {settings?.votingEnabled ? "Voting Open" : "Coming Soon"}
+                  </span>
+                </motion.div>
+
+                <motion.h1
+                  className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.2 }}
+                >
+                  <span className="gradient-text">
+                    {settings?.electionTitle || "Class Election"}
+                  </span>
+                </motion.h1>
+
+                <motion.p
+                  className="text-xl text-[#232323]/70 mb-8 max-w-xl"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.4 }}
+                >
+                  {settings?.electionDescription ||
+                    "Vote for your Class Representative in a secure, transparent and fair election process."}
+                </motion.p>
+
+                <motion.div
+                  className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.6 }}
+                >
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Button
+                      size="lg"
+                      onClick={handleStartVoting}
+                      className="relative overflow-hidden group bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white px-8 py-6 rounded-xl shadow-xl transition-all duration-300"
+                    >
+                      <motion.span
+                        className="absolute inset-0 bg-white/20"
+                        initial={{ x: "-100%" }}
+                        whileHover={{ x: "100%" }}
+                        transition={{ duration: 0.5 }}
+                      />
+                      <span className="relative z-10 flex items-center gap-2 text-lg font-medium">
+                        {userData?.hasVoted ? "View Your Vote" : "Start Voting"}
+                        <ArrowRight className="transition-transform group-hover:translate-x-1" />
+                      </span>
+                    </Button>
+                  </motion.div>
+
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Link to="/results">
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="relative overflow-hidden group border-2 border-[#33CC33] text-[#33CC33] hover:text-white px-8 py-6 rounded-xl transition-all duration-300"
+                      >
+                        <motion.span
+                          className="absolute inset-0 bg-[#33CC33] transform origin-left"
+                          initial={{ scaleX: 0 }}
+                          whileHover={{ scaleX: 1 }}
+                          transition={{ duration: 0.3 }}
+                        />
+                        <span className="relative z-10 flex items-center gap-2 text-lg font-medium">
+                          View Results
+                          <BarChart3 className="transition-transform group-hover:rotate-6" />
+                        </span>
+                      </Button>
+                    </Link>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+
+              {/* Right Column - 3D Animation */}
+              <motion.div
+                className="relative perspective-1000"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                style={{
+                  transform: `rotateY(${mousePosition.x * 0.02}deg) rotateX(${-mousePosition.y * 0.02}deg)`,
+                }}
+              >
+                <div className="relative">
+                  <motion.div
+                    className="absolute -inset-4 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-3xl blur-2xl"
+                    animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.3, 0.5] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  <motion.div
+                    className="relative bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/20"
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400 }}
+                  >
+                    <DotLottieReact
+                      src="https://lottie.host/5261d763-ce67-40cc-bfa9-e6c61fd84ec2/T6s26ljfpD.lottie"
+                      loop
+                      autoplay
+                      className="w-full h-80"
+                    />
+                    
+                    {/* Floating elements */}
+                    <motion.div
+                      className="absolute -top-8 -right-8 w-16 h-16 bg-gradient-to-br from-[#33CC33] to-[#2ecc71] rounded-full shadow-lg"
+                      animate={{ y: [0, -15, 0], rotate: [0, 10, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      <Star className="w-8 h-8 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                    </motion.div>
+                    
+                    <motion.div
+                      className="absolute -bottom-8 -left-8 w-16 h-16 bg-gradient-to-br from-[#232323] to-[#454545] rounded-full shadow-lg"
+                      animate={{ y: [0, 15, 0], rotate: [0, -10, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                    >
+                      <Zap className="w-8 h-8 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                    </motion.div>
+                  </motion.div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Scroll indicator */}
+          <motion.div
+            className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <ChevronDown className="w-6 h-6 text-[#33CC33]" />
+          </motion.div>
+        </section>
+
+        {/* Features Section */}
+        <section className="relative py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className="text-center md:text-left"
+              className="text-center mb-16"
             >
               <motion.div
-                className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-6"
+                className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <motion.div 
-                  className="relative w-3 h-3"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [1, 0.8, 1],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                  }}
-                >
-                  <div className="absolute inset-0 rounded-full bg-[#33CC33]" />
-                  <div className="absolute inset-0 rounded-full bg-[#33CC33] animate-ping" />
-                </motion.div>
-                <span className="ml-2 text-[#33CC33] font-medium">
-                  {settings?.votingEnabled ? "Voting Open" : "Coming Soon"}
-                </span>
+                <Sparkles className="w-4 h-4 text-[#33CC33] mr-2" />
+                <span className="text-[#33CC33] font-medium">WHY CHOOSE US</span>
               </motion.div>
+              
+              <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
+                Advanced Features
+              </h2>
+              <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
+                Experience the future of voting with our cutting-edge platform
+              </p>
+            </motion.div>
 
-              <motion.h1
-                className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-              >
-                <span className="gradient-text">
-                  {settings?.electionTitle || "CR Voting System"}
-                </span>
-              </motion.h1>
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: <MousePointer2 className="w-8 h-8" />,
+                  title: "Easy to Use",
+                  description: "Intuitive interface designed for seamless voting experience",
+                },
+                {
+                  icon: <Shield className="w-8 h-8" />,
+                  title: "Secure Voting",
+                  description: "Advanced encryption and security measures to protect your vote",
+                },
+                {
+                  icon: <Fingerprint className="w-8 h-8" />,
+                  title: "Verified Identity",
+                  description: "Multi-factor authentication ensures legitimate voters",
+                },
+              ].map((feature, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: index * 0.2 }}
+                >
+                  <Card
+                    className="relative overflow-hidden hover:shadow-2xl transition-all duration-500"
+                    gradient
+                    hover3D
+                    glare
+                  >
+                    <CardContent className="p-8">
+                      <motion.div
+                        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#33CC33] to-[#2ecc71] flex items-center justify-center text-white mb-6"
+                        whileHover={{ rotate: 5, scale: 1.1 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        {feature.icon}
+                      </motion.div>
+                      <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
+                      <p className="text-[#232323]/70">{feature.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-              <motion.p
-                className="text-xl text-[#232323]/70 mb-8 max-w-xl"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
+        {/* Stats Section */}
+        <section className="relative py-20 px-4 overflow-hidden">
+          <motion.div
+            className="absolute inset-0 bg-[#33CC33]/5"
+            animate={{
+              backgroundPosition: ['0% 0%', '100% 100%'],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              repeatType: 'reverse',
+            }}
+            style={{
+              backgroundImage: 'radial-gradient(circle at center, rgba(51, 204, 51, 0.1) 0%, transparent 70%)',
+              backgroundSize: '100% 100%',
+            }}
+          />
+          
+          <div className="max-w-6xl mx-auto relative">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="text-center mb-16"
+            >
+              <motion.div
+                className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                {settings?.electionDescription ||
-                  "Vote for your Class Representative in a secure, transparent and fair election process."}
-              </motion.p>
+                <BarChart3 className="w-4 h-4 text-[#33CC33] mr-2" />
+                <span className="text-[#33CC33] font-medium">LIVE METRICS</span>
+              </motion.div>
+              
+              <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
+                Real-time Statistics
+              </h2>
+              <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
+                Track the progress of the election as it happens
+              </p>
+            </motion.div>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: <Users className="w-8 h-8" />,
+                  value: totalVotes,
+                  label: "Total Votes",
+                },
+                {
+                  icon: <Clock className="w-8 h-8" />,
+                  value: settings?.votingEnabled ? "Active" : "Closed",
+                  label: "Status",
+                },
+                {
+                  icon: <ShieldCheck className="w-8 h-8" />,
+                  value: "100%",
+                  label: "Security",
+                },
+              ].map((stat, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: index * 0.2 }}
+                >
+                  <Card
+                    className="relative overflow-hidden hover:shadow-2xl transition-all duration-500 bg-white/50 backdrop-blur-sm"
+                    gradient
+                    hover3D
+                    glare
+                  >
+                    <CardContent className="p-8">
+                      <motion.div
+                        className="w-16 h-16 rounded-2xl bg-[#33CC33]/10 flex items-center justify-center text-[#33CC33] mb-6 mx-auto"
+                        whileHover={{ rotate: 5, scale: 1.1 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        {stat.icon}
+                      </motion.div>
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        whileInView={{ scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ type: "spring", stiffness: 300, delay: index * 0.2 }}
+                        className="text-4xl font-bold text-center mb-2"
+                      >
+                        {stat.value}
+                      </motion.div>
+                      <p className="text-[#232323]/70 text-center">{stat.label}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Process Section */}
+        <section className="relative py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="text-center mb-16"
+            >
+              <motion.div
+                className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Workflow className="w-4 h-4 text-[#33CC33] mr-2" />
+                <span className="text-[#33CC33] font-medium">HOW IT WORKS</span>
+              </motion.div>
+              
+              <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
+                Simple Voting Process
+              </h2>
+              <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
+                Complete your vote in three easy steps
+              </p>
+            </motion.div>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: <UserCheck className="w-8 h-8" />,
+                  title: "1. Verify Identity",
+                  description: "Sign in with your college email for secure access",
+                },
+                {
+                  icon: <Target className="w-8 h-8" />,
+                  title: "2. Choose Candidate",
+                  description: "Select your preferred candidate from the list",
+                },
+                {
+                  icon: <CheckCircle2 className="w-8 h-8" />,
+                  title: "3. Confirm Vote",
+                  description: "Review and confirm your selection",
+                },
+              ].map((step, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: index * 0.2 }}
+                >
+                  <Card
+                    className="relative overflow-hidden hover:shadow-2xl transition-all duration-500"
+                    gradient
+                    hover3D
+                    glare
+                  >
+                    <CardContent className="p-8">
+                      <motion.div
+                        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#33CC33] to-[#2ecc71] flex items-center justify-center text-white mb-6"
+                        whileHover={{ rotate: 5, scale: 1.1 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        {step.icon}
+                      </motion.div>
+                      <h3 className="text-2xl font-bold mb-4">{step.title}</h3>
+                      <p className="text-[#232323]/70">{step.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Benefits Section */}
+        <section className="relative py-20 px-4 bg-gradient-to-b from-white to-[#F3F6F8]">
+          <motion.div
+            className="absolute inset-0"
+            animate={{
+              background: [
+                'radial-gradient(circle at 0% 0%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
+                'radial-gradient(circle at 100% 100%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
+                'radial-gradient(circle at 0% 0%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
+              ],
+            }}
+            transition={{
+              duration: 10,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+          
+          <div className="max-w-6xl mx-auto relative">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="text-center mb-16"
+            >
+              <motion.div
+                className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Award className="w-4 h-4 text-[#33CC33] mr-2" />
+                <span className="text-[#33CC33] font-medium">BENEFITS</span>
+              </motion.div>
+              
+              <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
+                Why Choose Digital Voting
+              </h2>
+              <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
+                Experience the advantages of modern voting technology
+              </p>
+            </motion.div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: <Timer className="w-6 h-6" />,
+                  title: "Time Efficient",
+                  description: "Vote quickly from anywhere, no queues or waiting",
+                },
+                {
+                  icon: <Shield className="w-6 h-6" />,
+                  title: "Enhanced Security",
+                  description: "Advanced encryption and verification systems",
+                },
+                {
+                  icon: <Gauge className="w-6 h-6" />,
+                  title: "Real-time Results",
+                  description: "Instant vote counting and result updates",
+                },
+                {
+                  icon: <Blocks className="w-6 h-6" />,
+                  title: "Transparent Process",
+                  description: "Clear audit trail and verifiable results",
+                },
+                {
+                  icon: <Puzzle className="w-6 h-6" />,
+                  title: "Easy Integration",
+                  description: "Seamlessly works with existing systems",
+                },
+                {
+                  icon: <Megaphone className="w-6 h-6" />,
+                  title: "Better Engagement",
+                  description: "Increased participation and voter turnout",
+                },
+              ].map((benefit, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: index * 0.1 }}
+                  className="highlight-box"
+                >
+                  <Card className="h-full glass-card hover:shadow-xl transition-all duration-300">
+                    <CardContent className="p-6">
+                      <motion.div
+                        className="w-12 h-12 rounded-lg bg-[#33CC33]/10 flex items-center justify-center text-[#33CC33] mb-4"
+                        whileHover={{ rotate: 5, scale: 1.1 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        {benefit.icon}
+                      </motion.div>
+                      <h3 className="text-xl font-semibold mb-2">{benefit.title}</h3>
+                      <p className="text-[#232323]/70 text-sm">{benefit.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Platform Support Section */}
+        <section className="relative py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="text-center mb-16"
+            >
+              <motion.div
+                className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Rocket className="w-4 h-4 text-[#33CC33] mr-2" />
+                <span className="text-[#33CC33] font-medium">PLATFORM SUPPORT</span>
+              </motion.div>
+              
+              <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
+                Vote from Any Device
+              </h2>
+              <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
+                Our platform works seamlessly across all your devices
+              </p>
+            </motion.div>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: <Laptop className="w-12 h-12" />,
+                  title: "Desktop",
+                  description: "Vote comfortably from your computer",
+                },
+                {
+                  icon: <Smartphone className="w-12 h-12" />,
+                  title: "Mobile",
+                  description: "Vote on the go with our mobile-optimized interface",
+                },
+                {
+                  icon: <Tablet className="w-12 h-12" />,
+                  title: "Tablet",
+                  description: "Perfect for touch-screen voting experience",
+                },
+              ].map((platform, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: index * 0.2 }}
+                >
+                  <Card
+                    className="relative overflow-hidden text-center hover:shadow-2xl transition-all duration-500"
+                    gradient
+                    hover3D
+                    glare
+                  >
+                    <CardContent className="p-8">
+                      <motion.div
+                        className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#33CC33] to-[#2ecc71] flex items-center justify-center text-white mb-6 mx-auto"
+                        whileHover={{ rotate: 5, scale: 1.1 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        {platform.icon}
+                      </motion.div>
+                      <h3 className="text-2xl font-bold mb-4">{platform.title}</h3>
+                      <p className="text-[#232323]/70">{platform.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="relative py-20 px-4">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-[#33CC33]/5 to-[#2ecc71]/5"
+            animate={{
+              opacity: [0.5, 0.8, 0.5],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+          
+          <div className="max-w-4xl mx-auto relative">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="text-center glass-card rounded-3xl p-12"
+            >
+              <motion.div
+                animate={{
+                  y: [0, -10, 0],
+                }}
+                transition={{
+                  duration: 4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                <Handshake className="w-16 h-16 text-[#33CC33] mx-auto mb-6" />
+              </motion.div>
+              
+              <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
+                Ready to Make Your Voice Heard?
+              </h2>
+              <p className="text-xl text-[#232323]/70 mb-8 max-w-2xl mx-auto">
+                Join your fellow students in shaping the future of your class
+              </p>
 
               <motion.div
-                className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start"
+                className="flex flex-col sm:flex-row gap-4 justify-center"
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.6 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.2 }}
               >
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -447,7 +1014,7 @@ const Index = () => {
                   <Button
                     size="lg"
                     onClick={handleStartVoting}
-                    className="relative overflow-hidden group bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white px-8 py-6 rounded-xl shadow-xl transition-all duration-300"
+                    className="relative overflow-hidden group bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white px-8 py-6 rounded-xl shadow-xl transition-all duration-300 w-full sm:w-auto"
                   >
                     <motion.span 
                       className="absolute inset-0 bg-white/20"
@@ -455,8 +1022,8 @@ const Index = () => {
                       whileHover={{ x: '100%' }}
                       transition={{ duration: 0.5 }}
                     />
-                    <span className="relative z-10 flex items-center gap-2 text-lg font-medium">
-                      {userData?.hasVoted ? "View Your Vote" : "Start Voting"}
+                    <span className="relative z-10 flex items-center justify-center gap-2 text-lg font-medium">
+                      Start Voting Now
                       <ArrowRight className="transition-transform group-hover:translate-x-1" />
                     </span>
                   </Button>
@@ -466,11 +1033,11 @@ const Index = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Link to="/results">
+                  <Link to="/results" className="block w-full sm:w-auto">
                     <Button
                       size="lg"
                       variant="outline"
-                      className="relative overflow-hidden group border-2 border-[#33CC33] text-[#33CC33] hover:text-white px-8 py-6 rounded-xl transition-all duration-300"
+                      className="relative overflow-hidden group border-2 border-[#33CC33] text-[#33CC33] hover:text-white px-8 py-6 rounded-xl transition-all duration-300 w-full"
                     >
                       <motion.span 
                         className="absolute inset-0 bg-[#33CC33] transform origin-left"
@@ -478,8 +1045,8 @@ const Index = () => {
                         whileHover={{ scaleX: 1 }}
                         transition={{ duration: 0.3 }}
                       />
-                      <span className="relative z-10 flex items-center gap-2 text-lg font-medium">
-                        View Results
+                      <span className="relative z-10 flex items-center justify-center gap-2 text-lg font-medium">
+                        Check Results
                         <BarChart3 className="transition-transform group-hover:rotate-6" />
                       </span>
                     </Button>
@@ -487,625 +1054,9 @@ const Index = () => {
                 </motion.div>
               </motion.div>
             </motion.div>
-
-            {/* Right Column - 3D Animation */}
-            <motion.div
-              className="relative perspective-1000"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              style={{
-                transform: `rotateY(${mousePosition.x * 0.02}deg) rotateX(${-mousePosition.y * 0.02}deg)`,
-              }}
-            >
-              <div className="relative">
-                <motion.div
-                  className="absolute -inset-4 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-3xl blur-2xl"
-                  animate={{
-                    scale: [1, 1.1, 1],
-                    opacity: [0.5, 0.3, 0.5],
-                  }}
-                  transition={{
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                />
-                <motion.div 
-                  className="relative bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/20"
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 400 }}
-                >
-                  <DotLottieReact
-                    src="https://lottie.host/5261d763-ce67-40cc-bfa9-e6c61fd84ec2/T6s26ljfpD.lottie"
-                    loop
-                    autoplay
-                    className="w-full h-80"
-                  />
-                  
-                  {/* Floating elements */}
-                  <motion.div
-                    className="absolute -top-8 -right-8 w-16 h-16 bg-gradient-to-br from-[#33CC33] to-[#2ecc71] rounded-full shadow-lg"
-                    animate={{
-                      y: [0, -15, 0],
-                      rotate: [0, 10, 0],
-                    }}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  >
-                    <Star className="w-8 h-8 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-                  </motion.div>
-                  
-                  <motion.div
-                    className="absolute -bottom-8 -left-8 w-16 h-16 bg-gradient-to-br from-[#232323] to-[#454545] rounded-full shadow-lg"
-                    animate={{
-                      y: [0, 15, 0],
-                      rotate: [0, -10, 0],
-                    }}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: 0.5,
-                    }}
-                  >
-                    <Zap className="w-8 h-8 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-                  </motion.div>
-                </motion.div>
-              </div>
-            </motion.div>
           </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <motion.div
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
-          animate={{
-            y: [0, 10, 0],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        >
-          <ChevronDown className="w-6 h-6 text-[#33CC33]" />
-        </motion.div>
-      </section>
-
-      {/* Features Section */}
-      <section className="relative py-20 px-4">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <motion.div
-              className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Sparkles className="w-4 h-4 text-[#33CC33] mr-2" />
-              <span className="text-[#33CC33] font-medium">WHY CHOOSE US</span>
-            </motion.div>
-            
-            <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
-              Advanced Features
-            </h2>
-            <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
-              Experience the future of voting with our cutting-edge platform
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <MousePointer2 className="w-8 h-8" />,
-                title: "Easy to Use",
-                description: "Intuitive interface designed for seamless voting experience",
-              },
-              {
-                icon: <Shield className="w-8 h-8" />,
-                title: "Secure Voting",
-                description: "Advanced encryption and security measures to protect your vote",
-              },
-              {
-                icon: <Fingerprint className="w-8 h-8" />,
-                title: "Verified Identity",
-                description: "Multi-factor authentication ensures legitimate voters",
-              },
-            ].map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
-              >
-                <Card
-                  className="relative overflow-hidden hover:shadow-2xl transition-all duration-500"
-                  gradient
-                  hover3D
-                  glare
-                >
-                  <CardContent className="p-8">
-                    <motion.div
-                      className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#33CC33] to-[#2ecc71] flex items-center justify-center text-white mb-6"
-                      whileHover={{ rotate: 5, scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      {feature.icon}
-                    </motion.div>
-                    <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
-                    <p className="text-[#232323]/70">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="relative py-20 px-4 overflow-hidden">
-        <motion.div
-          className="absolute inset-0 bg-[#33CC33]/5"
-          animate={{
-            backgroundPosition: ['0% 0%', '100% 100%'],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            repeatType: 'reverse',
-          }}
-          style={{
-            backgroundImage: 'radial-gradient(circle at center, rgba(51, 204, 51, 0.1) 0%, transparent 70%)',
-            backgroundSize: '100% 100%',
-          }}
-        />
-        
-        <div className="max-w-6xl mx-auto relative">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <motion.div
-              className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <BarChart3 className="w-4 h-4 text-[#33CC33] mr-2" />
-              <span className="text-[#33CC33] font-medium">LIVE METRICS</span>
-            </motion.div>
-            
-            <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
-              Real-time Statistics
-            </h2>
-            <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
-              Track the progress of the election as it happens
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <Users className="w-8 h-8" />,
-                value: totalVotes,
-                label: "Total Votes",
-              },
-              {
-                icon: <Clock className="w-8 h-8" />,
-                value: settings?.votingEnabled ? "Active" : "Closed",
-                label: "Status",
-              },
-              {
-                icon: <ShieldCheck className="w-8 h-8" />,
-                value: "100%",
-                label: "Security",
-              },
-            ].map((stat, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
-              >
-                <Card
-                  className="relative overflow-hidden hover:shadow-2xl transition-all duration-500 bg-white/50 backdrop-blur-sm"
-                  gradient
-                  hover3D
-                  glare
-                >
-                  <CardContent className="p-8">
-                    <motion.div
-                      className="w-16 h-16 rounded-2xl bg-[#33CC33]/10 flex items-center justify-center text-[#33CC33] mb-6 mx-auto"
-                      whileHover={{ rotate: 5, scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      {stat.icon}
-                    </motion.div>
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      whileInView={{ scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ type: "spring", stiffness: 300, delay: index * 0.2 }}
-                      className="text-4xl font-bold text-center mb-2"
-                    >
-                      {stat.value}
-                    </motion.div>
-                    <p className="text-[#232323]/70 text-center">{stat.label}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Process Section */}
-      <section className="relative py-20 px-4">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <motion.div
-              className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Workflow className="w-4 h-4 text-[#33CC33] mr-2" />
-              <span className="text-[#33CC33] font-medium">HOW IT WORKS</span>
-            </motion.div>
-            
-            <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
-              Simple Voting Process
-            </h2>
-            <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
-              Complete your vote in three easy steps
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <UserCheck className="w-8 h-8" />,
-                title: "1. Verify Identity",
-                description: "Sign in with your college email for secure access",
-              },
-              {
-                icon: <Target className="w-8 h-8" />,
-                title: "2. Choose Candidate",
-                description: "Select your preferred candidate from the list",
-              },
-              {
-                icon: <CheckCircle2 className="w-8 h-8" />,
-                title: "3. Confirm Vote",
-                description: "Review and confirm your selection",
-              },
-            ].map((step, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
-              >
-                <Card
-                  className="relative overflow-hidden hover:shadow-2xl transition-all duration-500"
-                  gradient
-                  hover3D
-                  glare
-                >
-                  <CardContent className="p-8">
-                    <motion.div
-                      className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#33CC33] to-[#2ecc71] flex items-center justify-center text-white mb-6"
-                      whileHover={{ rotate: 5, scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      {step.icon}
-                    </motion.div>
-                    <h3 className="text-2xl font-bold mb-4">{step.title}</h3>
-                    <p className="text-[#232323]/70">{step.description}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="relative py-20 px-4 bg-gradient-to-b from-white to-[#F3F6F8]">
-        <motion.div
-          className="absolute inset-0"
-          animate={{
-            background: [
-              'radial-gradient(circle at 0% 0%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
-              'radial-gradient(circle at 100% 100%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
-              'radial-gradient(circle at 0% 0%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
-            ],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
-        
-        <div className="max-w-6xl mx-auto relative">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <motion.div
-              className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Award className="w-4 h-4 text-[#33CC33] mr-2" />
-              <span className="text-[#33CC33] font-medium">BENEFITS</span>
-            </motion.div>
-            
-            <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
-              Why Choose Digital Voting
-            </h2>
-            <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
-              Experience the advantages of modern voting technology
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <Timer className="w-6 h-6" />,
-                title: "Time Efficient",
-                description: "Vote quickly from anywhere, no queues or waiting",
-              },
-              {
-                icon: <Shield className="w-6 h-6" />,
-                title: "Enhanced Security",
-                description: "Advanced encryption and verification systems",
-              },
-              {
-                icon: <Gauge className="w-6 h-6" />,
-                title: "Real-time Results",
-                description: "Instant vote counting and result updates",
-              },
-              {
-                icon: <Blocks className="w-6 h-6" />,
-                title: "Transparent Process",
-                description: "Clear audit trail and verifiable results",
-              },
-              {
-                icon: <Puzzle className="w-6 h-6" />,
-                title: "Easy Integration",
-                description: "Seamlessly works with existing systems",
-              },
-              {
-                icon: <Megaphone className="w-6 h-6" />,
-                title: "Better Engagement",
-                description: "Increased participation and voter turnout",
-              },
-            ].map((benefit, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: index * 0.1 }}
-                className="highlight-box"
-              >
-                <Card className="h-full glass-card hover:shadow-xl transition-all duration-300">
-                  <CardContent className="p-6">
-                    <motion.div
-                      className="w-12 h-12 rounded-lg bg-[#33CC33]/10 flex items-center justify-center text-[#33CC33] mb-4"
-                      whileHover={{ rotate: 5, scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      {benefit.icon}
-                    </motion.div>
-                    <h3 className="text-xl font-semibold mb-2">{benefit.title}</h3>
-                    <p className="text-[#232323]/70 text-sm">{benefit.description}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Platform Support Section */}
-      <section className="relative py-20 px-4">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <motion.div
-              className="inline-flex items-center px-4 py-2 rounded-full glass-effect mb-4"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Rocket className="w-4 h-4 text-[#33CC33] mr-2" />
-              <span className="text-[#33CC33] font-medium">PLATFORM SUPPORT</span>
-            </motion.div>
-            
-            <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
-              Vote from Any Device
-            </h2>
-            <p className="text-xl text-[#232323]/70 max-w-2xl mx-auto">
-              Our platform works seamlessly across all your devices
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <Laptop className="w-12 h-12" />,
-                title: "Desktop",
-                description: "Vote comfortably from your computer",
-              },
-              {
-                icon: <Smartphone className="w-12 h-12" />,
-                title: "Mobile",
-                description: "Vote on the go with our mobile-optimized interface",
-              },
-              {
-                icon: <Tablet className="w-12 h-12" />,
-                title: "Tablet",
-                description: "Perfect for touch-screen voting experience",
-              },
-            ].map((platform, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
-              >
-                <Card
-                  className="relative overflow-hidden text-center hover:shadow-2xl transition-all duration-500"
-                  gradient
-                  hover3D
-                  glare
-                >
-                  <CardContent className="p-8">
-                    <motion.div
-                      className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#33CC33] to-[#2ecc71] flex items-center justify-center text-white mb-6 mx-auto"
-                      whileHover={{ rotate: 5, scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      {platform.icon}
-                    </motion.div>
-                    <h3 className="text-2xl font-bold mb-4">{platform.title}</h3>
-                    <p className="text-[#232323]/70">{platform.description}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="relative py-20 px-4">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-[#33CC33]/5 to-[#2ecc71]/5"
-          animate={{
-            opacity: [0.5, 0.8, 0.5],
-          }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        
-        <div className="max-w-4xl mx-auto relative">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center glass-card rounded-3xl p-12"
-          >
-            <motion.div
-              animate={{
-                y: [0, -10, 0],
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            >
-              <Handshake className="w-16 h-16 text-[#33CC33] mx-auto mb-6" />
-            </motion.div>
-            
-            <h2 className="text-4xl md:text-5xl font-bold text-gradient mb-6">
-              Ready to Make Your Voice Heard?
-            </h2>
-            <p className="text-xl text-[#232323]/70 mb-8 max-w-2xl mx-auto">
-              Join your fellow students in shaping the future of your class
-            </p>
-
-            <motion.div
-              className="flex flex-col sm:flex-row gap-4 justify-center"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button
-                  size="lg"
-                  onClick={handleStartVoting}
-                  className="relative overflow-hidden group bg-gradient-to-r from-[#33CC33] to-[#2ecc71] hover:from-[#2ecc71] hover:to-[#33CC33] text-white px-8 py-6 rounded-xl shadow-xl transition-all duration-300 w-full sm:w-auto"
-                >
-                  <motion.span 
-                    className="absolute inset-0 bg-white/20"
-                    initial={{ x: '-100%' }}
-                    whileHover={{ x: '100%' }}
-                    transition={{ duration: 0.5 }}
-                  />
-                  <span className="relative z-10 flex items-center justify-center gap-2 text-lg font-medium">
-                    Start Voting Now
-                    <ArrowRight className="transition-transform group-hover:translate-x-1" />
-                  </span>
-                </Button>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Link to="/results" className="block w-full sm:w-auto">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="relative overflow-hidden group border-2 border-[#33CC33] text-[#33CC33] hover:text-white px-8 py-6 rounded-xl transition-all duration-300 w-full"
-                  >
-                    <motion.span 
-                      className="absolute inset-0 bg-[#33CC33] transform origin-left"
-                      initial={{ scaleX: 0 }}
-                      whileHover={{ scaleX: 1 }}
-                      transition={{ duration: 0.3 }}
-                    />
-                    <span className="relative z-10 flex items-center justify-center gap-2 text-lg font-medium">
-                      Check Results
-                      <BarChart3 className="transition-transform group-hover:rotate-6" />
-                    </span>
-                  </Button>
-                </Link>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-    </motion.main>
+        </section>
+      </motion.main>
     </>
   );
 };
