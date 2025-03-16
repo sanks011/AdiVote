@@ -19,6 +19,12 @@ interface VoteActivity {
   className?: string;
 }
 
+interface CandidateData {
+  name: string;
+  votes?: number;
+  classId?: string;
+}
+
 interface VoteStats {
   totalVotes: number;
   totalVoters: number;
@@ -129,7 +135,7 @@ const VotingMonitor = () => {
       // Get unique voters
       const votersSet = new Set();
       votesSnapshot.docs.forEach(doc => {
-        votersSet.add(doc.data().userId);
+        votersSet.add((doc.data() as { userId: string }).userId);
       });
       const totalVoters = votersSet.size;
       
@@ -139,7 +145,8 @@ const VotingMonitor = () => {
       
       let votesLastHour = 0;
       votesSnapshot.docs.forEach(doc => {
-        const voteTime = doc.data().timestamp.toDate();
+        const data = doc.data() as { timestamp: Timestamp };
+        const voteTime = data.timestamp.toDate();
         if (voteTime >= oneHourAgo) {
           votesLastHour++;
         }
@@ -160,7 +167,7 @@ const VotingMonitor = () => {
       
       const candidatesSnapshot = await getDocs(candidatesQuery);
       const candidateVotes = candidatesSnapshot.docs.map(doc => {
-        const data = doc.data();
+        const data = doc.data() as CandidateData;
         return {
           id: doc.id,
           name: data.name,
