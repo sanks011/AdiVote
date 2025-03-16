@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +17,9 @@ import UserProfile from "./pages/UserProfile";
 import ClassBrowser from "./pages/ClassBrowser";
 import { useAuth } from "./contexts/AuthContext";
 import ElectionTimer from "./services/ElectionTimer";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import Team from "./pages/Team";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +106,9 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } 
       />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/team" element={<Team />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

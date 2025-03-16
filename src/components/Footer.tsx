@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Github, Mail, Vote, Heart, ExternalLink } from 'lucide-react';
+import { Vote, Heart, ExternalLink, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Footer = () => {
@@ -69,7 +69,7 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Links and Social */}
+          {/* Links Section */}
           <div className="flex flex-col md:flex-row items-center gap-8">
             {/* Essential Links */}
             <div className="flex items-center gap-8">
@@ -101,28 +101,21 @@ const Footer = () => {
               </motion.div>
             </div>
 
-            {/* Social Links */}
+            {/* Team Link with Icon */}
             <div className="flex items-center gap-6 md:border-l border-gray-200 md:pl-8">
-              <motion.a
-                href="https://github.com/yourusername/adivote"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-lg bg-gray-100 hover:bg-[#33CC33]/10 text-gray-600 hover:text-[#33CC33] transition-colors"
+              <motion.div
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                aria-label="GitHub"
               >
-                <Github className="h-5 w-5" />
-              </motion.a>
-              <motion.a
-                href="mailto:contact@adivote.com"
-                className="p-2 rounded-lg bg-gray-100 hover:bg-[#33CC33]/10 text-gray-600 hover:text-[#33CC33] transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                aria-label="Email"
-              >
-                <Mail className="h-5 w-5" />
-              </motion.a>
+                <Link
+                  to="/team"
+                  className="p-2 rounded-lg bg-gray-100 hover:bg-[#33CC33]/10 text-gray-600 hover:text-[#33CC33] transition-colors flex items-center gap-2"
+                  aria-label="Meet the Team"
+                >
+                  <Users className="h-5 w-5" />
+                  <span className="text-sm font-medium">Our Team</span>
+                </Link>
+              </motion.div>
             </div>
           </div>
         </div>
