@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -99,8 +98,8 @@ const customStyles = `
 
   .aurora {
     position: absolute;
-    width: 800px;
-    height: 800px;
+    width: 1200px;
+    height: 1200px;
     transform: translate(-50%, -50%);
     background: linear-gradient(45deg, 
       rgba(51, 204, 51, 0.1) 0%,
@@ -109,10 +108,11 @@ const customStyles = `
       rgba(46, 204, 113, 0.1) 75%,
       rgba(51, 204, 51, 0.1) 100%
     );
-    filter: blur(60px);
+    filter: blur(80px);
     border-radius: 50%;
-    animation: aurora 15s linear infinite;
+    animation: aurora 20s linear infinite;
     pointer-events: none;
+    opacity: 0.5;
   }
 
   .gradient-text {
@@ -128,39 +128,39 @@ const customStyles = `
   }
 
   .shimmer {
-    background: linear-gradient(90deg, transparent, rgba(51, 204, 51, 0.1), transparent);
+    background: linear-gradient(90deg, transparent, rgba(51, 204, 51, 0.2), transparent);
     background-size: 1000px 100%;
     animation: shimmer 2s infinite linear;
   }
 
   .card-hover {
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .card-hover:hover {
     transform: translateY(-10px) scale(1.02);
-    box-shadow: 0 20px 40px rgba(51, 204, 51, 0.1);
+    box-shadow: 0 20px 40px rgba(51, 204, 51, 0.15);
   }
 
   .glass-effect {
-    backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.3);
   }
 
   .text-gradient {
-    background: linear-gradient(120deg, #33CC33, #2ecc71);
+    background: linear-gradient(135deg, #33CC33, #2ecc71);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
   .hover-lift {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .hover-lift:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(51, 204, 51, 0.15);
+    box-shadow: 0 15px 30px rgba(51, 204, 51, 0.2);
   }
 
   .bounce {
@@ -176,17 +176,17 @@ const customStyles = `
   }
 
   .slide-up {
-    animation: slide-up 0.5s ease-out forwards;
+    animation: slide-up 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
 
   .rotate-3d {
-    animation: rotate-3d 15s linear infinite;
+    animation: rotate-3d 20s linear infinite;
   }
 
   .glass-card {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
   }
 
@@ -205,7 +205,7 @@ const customStyles = `
     background: linear-gradient(
       45deg,
       transparent,
-      rgba(51, 204, 51, 0.1),
+      rgba(51, 204, 51, 0.2),
       transparent
     );
     transform: rotate(45deg);
@@ -215,7 +215,7 @@ const customStyles = `
   .feature-grid {
     display: grid;
     gap: 2rem;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   }
 
   .timeline-item {
@@ -355,25 +355,30 @@ const Index = () => {
               style={{ left: p.left, top: p.top }}
             />
           ))}
-          <div className="aurora" style={{ left: "50%", top: "50%" }} />
+          <div className="aurora" style={{ left: "25%", top: "25%" }} />
+          <div className="aurora" style={{ left: "75%", top: "75%", animationDelay: "-5s" }} />
         </div>
 
         {/* Hero Section */}
-        <section className="relative min-h-screen flex items-center justify-center py-20 px-4">
-          <div className="max-w-6xl mx-auto relative">
+        <section className="relative min-h-screen flex items-center justify-center py-20 px-4 overflow-hidden">
+          <div className="absolute inset-0">
+            <div className="aurora" style={{ left: "25%", top: "25%" }} />
+            <div className="aurora" style={{ left: "75%", top: "75%", animationDelay: "-5s" }} />
             <motion.div
-              className="absolute -top-20 -left-20 w-64 h-64 bg-[#33CC33]/10 rounded-full blur-3xl"
-              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute inset-0"
+              animate={{
+                background: [
+                  'radial-gradient(circle at 0% 0%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
+                  'radial-gradient(circle at 100% 100%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
+                  'radial-gradient(circle at 0% 0%, rgba(51, 204, 51, 0.1) 0%, transparent 50%)',
+                ],
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
             />
-            <motion.div
-              className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#2ecc71]/10 rounded-full blur-3xl"
-              animate={{ scale: [1.2, 1, 1.2], opacity: [0.5, 0.3, 0.5] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
+          </div>
 
-            <div className="relative grid md:grid-cols-2 gap-12 items-center">
-              {/* Left Column - Text Content */}
+          <div className="max-w-6xl mx-auto relative">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -479,12 +484,20 @@ const Index = () => {
               >
                 <div className="relative">
                   <motion.div
-                    className="absolute -inset-4 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-3xl blur-2xl"
-                    animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.3, 0.5] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute -inset-4 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-3xl blur-3xl"
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      opacity: [0.3, 0.5, 0.3],
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      repeatType: "mirror",
+                      ease: "easeInOut",
+                    }}
                   />
                   <motion.div
-                    className="relative bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/20"
+                    className="relative glass-card rounded-2xl p-8 shadow-2xl"
                     whileHover={{ scale: 1.02 }}
                     transition={{ type: "spring", stiffness: 400 }}
                   >
@@ -494,37 +507,11 @@ const Index = () => {
                       autoplay
                       className="w-full h-80"
                     />
-                    
-                    {/* Floating elements */}
-                    <motion.div
-                      className="absolute -top-8 -right-8 w-16 h-16 bg-gradient-to-br from-[#33CC33] to-[#2ecc71] rounded-full shadow-lg"
-                      animate={{ y: [0, -15, 0], rotate: [0, 10, 0] }}
-                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                      <Star className="w-8 h-8 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-                    </motion.div>
-                    
-                    <motion.div
-                      className="absolute -bottom-8 -left-8 w-16 h-16 bg-gradient-to-br from-[#232323] to-[#454545] rounded-full shadow-lg"
-                      animate={{ y: [0, 15, 0], rotate: [0, -10, 0] }}
-                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                    >
-                      <Zap className="w-8 h-8 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-                    </motion.div>
                   </motion.div>
                 </div>
               </motion.div>
             </div>
           </div>
-
-          {/* Scroll indicator */}
-          <motion.div
-            className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <ChevronDown className="w-6 h-6 text-[#33CC33]" />
-          </motion.div>
         </section>
 
         {/* Features Section */}
