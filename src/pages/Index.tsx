@@ -324,7 +324,7 @@ const Index = () => {
       transition: {
         duration: Math.random() * 3 + 2,
         repeat: Infinity,
-        repeatType: "reverse",
+        repeatType: "reverse" as const,
       },
     }));
   }, []);

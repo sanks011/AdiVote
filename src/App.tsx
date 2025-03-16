@@ -124,7 +124,6 @@ const App = () => (
           <div className="flex flex-col min-h-screen">
             <Navbar />
             <main className="flex-grow pt-16">
-              <ElectionTimer />
               <AppRoutes />
             </main>
             <Footer />
