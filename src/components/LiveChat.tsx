@@ -11,14 +11,15 @@ import {
   getDocs,
   updateDoc,
   limit,
-  startAfter
+  startAfter,
+  getDoc
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
-import { Send, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Send, ChevronDown, MessageCircle, X, Users, ArrowLeft, Heart, ThumbsUp, Star, Smile } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -27,6 +28,14 @@ interface ChatMessage {
   senderName: string;
   createdAt: any;
   isRead?: boolean;
+  isReaction?: boolean;
+}
+
+// Add new interface for floating reactions
+interface FloatingReaction {
+  id: string;
+  emoji: string;
+  x: number;
 }
 
 interface LiveChatProps {
@@ -35,12 +44,18 @@ interface LiveChatProps {
   resultsVisible: boolean;
 }
 
+const REACTIONS = ['❤️', '👍','👎', '🎉', '🚀', '👏', '🔥','🗿','👀','🤬'];
+
 const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisible }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [showReactions, setShowReactions] = useState(false);
+  const [onlineUsers] = useState(Math.floor(Math.random() * 50) + 20);
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
   
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -52,12 +67,55 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
   const [loadingMore, setLoadingMore] = useState(false);
   const [firstVisibleMessage, setFirstVisibleMessage] = useState<any>(null);
   
-  // Format username to remove email domain
+  // Format username to remove email domain and capitalize first letter
   const formatUsername = (name: string) => {
     if (!name) return "Anonymous";
-    return name.includes("@stu.adamasuniversity.ac.in")
+    const username = name.includes("@stu.adamasuniversity.ac.in")
       ? name.replace("@stu.adamasuniversity.ac.in", "")
       : name;
+    return username.charAt(0).toUpperCase() + username.slice(1);
+  };
+  
+  // Generate random color for user avatar
+  const getAvatarColor = (userId: string) => {
+    const colors = [
+      'bg-rose-500', // Vibrant pink
+      'bg-amber-500', // Warm orange
+      'bg-emerald-500', // Rich green
+      'bg-violet-500', // Deep purple
+      'bg-cyan-500', // Bright blue
+      'bg-fuchsia-500', // Electric pink
+      'bg-lime-500', // Fresh lime
+      'bg-teal-500', // Ocean teal
+    ];
+    const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[index % colors.length];
+  };
+
+  // Get username color based on userId
+  const getUsernameColor = (userId: string) => {
+    const colors = [
+      'text-rose-600 dark:text-rose-400', // Vibrant pink
+      'text-amber-600 dark:text-amber-400', // Warm orange
+      'text-emerald-600 dark:text-emerald-400', // Rich green
+      'text-violet-600 dark:text-violet-400', // Deep purple
+      'text-cyan-600 dark:text-cyan-400', // Bright blue
+      'text-fuchsia-600 dark:text-fuchsia-400', // Electric pink
+      'text-lime-600 dark:text-lime-400', // Fresh lime
+      'text-teal-600 dark:text-teal-400', // Ocean teal
+    ];
+    const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[index % colors.length];
+  };
+
+  // Get user initials for avatar
+  const getInitials = (name: string) => {
+    if (!name) return 'A';
+    const parts = name.split(' ');
+    if (parts.length > 1) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name[0].toUpperCase();
   };
   
   // Load initial messages
@@ -129,43 +187,37 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
     if (!container) return;
   
     const handleScroll = () => {
-      // Show scroll button when not at bottom
-      const isAtBottom = 
-        container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
-      setShowScrollButton(!isAtBottom);
+      // Calculate if we're near bottom (within 50px)
+      const isNearBottom = 
+        container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+      setShowScrollButton(!isNearBottom);
       
-      // Load more messages when scrolling to top
       if (container.scrollTop < 100 && hasMoreMessages && !loadingMore) {
         loadMoreMessages();
       }
     };
   
     container.addEventListener("scroll", handleScroll);
+    // Initial check for scroll button
+    handleScroll();
+    
     return () => container.removeEventListener("scroll", handleScroll);
   }, [hasMoreMessages, loadingMore]);
   
-  // Automatically scroll to bottom when messages update
-// This effect specifically watches for new messages being added
-useEffect(() => {
+  // Auto-scroll to bottom for new messages
+  useEffect(() => {
     const container = messagesContainerRef.current;
     if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }, [messages]);
-
-  
-  useEffect(() => {
-    if (messages.length && messagesContainerRef.current) {
-      const container = messagesContainerRef.current;
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-      // Auto scroll if user is within 100px of bottom
-      if (distanceFromBottom < 100) {
+      const isNearBottom = 
+        container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+      
+      if (isNearBottom) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }
     }
   }, [messages]);
   
-  // Delete all messages from the collection after results are announced
+  // Delete all messages when results are announced
   useEffect(() => {
     if (resultsVisible) {
       const deleteAllMessages = async () => {
@@ -175,7 +227,7 @@ useEffect(() => {
           deleteDoc(doc(db, "classes", classId, "chat", docSnap.id))
         );
         await Promise.all(deletions);
-        setMessages([]); // Clear local state after deletion
+        setMessages([]);
       };
       deleteAllMessages().catch((error) =>
         console.error("Error clearing chat:", error)
@@ -183,24 +235,19 @@ useEffect(() => {
     }
   }, [classId, resultsVisible]);
   
-  // Mark messages as read when visible
+  // Mark messages as read
   const markMessagesAsRead = async () => {
     const unreadMessages = messages.filter(msg => 
       msg.senderId !== currentUser.uid && 
-      (!msg.isRead || msg.isRead === false)
+      !msg.isRead
     );
     
     if (unreadMessages.length === 0) return;
     
     try {
-      const updates = unreadMessages.map(msg => 
-        doc(db, "classes", classId, "chat", msg.id)
-      ).map(async (docRef) => {
-        await getDoc(docRef).then((snapshot) => {
-          if (snapshot.exists()) {
-            return updateDoc(docRef, { isRead: true });
-          }
-        });
+      const updates = unreadMessages.map(msg => {
+        const docRef = doc(db, "classes", classId, "chat", msg.id);
+        return updateDoc(docRef, { isRead: true });
       });
       
       await Promise.all(updates);
@@ -209,11 +256,12 @@ useEffect(() => {
     }
   };
   
-  // Handle scroll to bottom button click
+  // Handle scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   
+  // Send message
   const handleSendMessage = async () => {
     if (!newMessage.trim() || isSending) return;
     
@@ -223,20 +271,15 @@ useEffect(() => {
       await addDoc(chatRef, {
         text: newMessage,
         senderId: currentUser.uid,
-        senderName:
-          currentUser.displayName ||
-          (currentUser.email && currentUser.email.replace("@stu.adamasuniversity.ac.in", "")) ||
-          "Anonymous",
+        senderName: currentUser.displayName || currentUser.email?.replace("@stu.adamasuniversity.ac.in", "") || "Anonymous",
         createdAt: serverTimestamp(),
         isRead: false
       });
       
       setNewMessage("");
-      inputRef.current?.focus();
-      
-      // Scroll to bottom after sending
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        inputRef.current?.focus();
+        scrollToBottom();
       }, 100);
     } catch (error) {
       console.error("Error sending message:", error);
@@ -246,146 +289,273 @@ useEffect(() => {
     }
   };
   
-  // Do not render chat once results are announced.
+  // Function to handle reaction click - updated version
+  const handleReaction = (reaction: string) => {
+    // Generate random X position within the chat container (between 10% and 90%)
+    const randomX = Math.random() * 80 + 10;
+    
+    const newReaction = {
+      id: Math.random().toString(),
+      emoji: reaction,
+      x: randomX
+    };
+    
+    setFloatingReactions(prev => [...prev, newReaction]);
+    
+    // Remove the reaction after animation completes
+    setTimeout(() => {
+      setFloatingReactions(prev => prev.filter(r => r.id !== newReaction.id));
+    }, 2000);
+  };
+  
   if (resultsVisible) return null;
   
   return (
-    <div className="mt-4 w-[70%] mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-2xl font-bold">Live Chat</h3>
-      </div>
-      
-      {/* Chat container with reduced height, a top mask, and hidden scrollbar */}
-      <div
-        ref={messagesContainerRef}
-        className="w-full h-[500px] overflow-y-auto relative p-4 bg-slate-50/30 rounded-lg shadow-inner"
-        style={{
-          maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 100%)",
-          msOverflowStyle: "none", // for IE and Edge
-          scrollbarWidth: "none", // for Firefox
+    <>
+      {/* Chat Toggle Button */}
+      <motion.button
+        className="fixed bottom-20 right-4 z-50 bg-white/10 text-primary p-3 rounded-full shadow-lg border border-primary/20"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        style={{ 
+          transform: 'translateZ(0)',
+          backdropFilter: 'blur(8px)',
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1))'
         }}
-        onClick={markMessagesAsRead}
       >
-        {/* Hide scrollbar for Webkit browsers */}
-        <style>
-          {`
-            .w-full::-webkit-scrollbar {
-              display: none;
-            }
-          `}
-        </style>
-        
-        {/* Loading indicator */}
-        {isLoading ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-spin h-8 w-8 border-4 border-slate-300 border-t-slate-600 rounded-full"></div>
-          </div>
-        ) : (
-          <>
-            {/* Load more messages button */}
-            {hasMoreMessages && (
-              <div className="text-center mb-4">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-xs"
-                  onClick={loadMoreMessages}
-                  disabled={loadingMore}
+        {isChatOpen ? <X className="text-primary" /> : <MessageCircle className="text-primary" />}
+      </motion.button>
+
+      {/* Chat Container */}
+      <AnimatePresence>
+        {isChatOpen && (
+          <motion.div
+            className="fixed top-0 md:top-[70px] right-0 bottom-0 w-full md:w-[350px] z-40 border-l border-primary/10"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 20 }}
+            style={{ 
+              backdropFilter: 'blur(12px)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))',
+              overflow: 'hidden' // Add this to contain the floating reactions
+            }}
+          >
+            {/* Floating Reactions Container */}
+            <div className="absolute inset-0 pointer-events-none">
+              <AnimatePresence>
+                {floatingReactions.map((reaction) => (
+                  <motion.div
+                    key={reaction.id}
+                    className="absolute bottom-16 text-4xl"
+                    initial={{ 
+                      opacity: 1, 
+                      y: 0,
+                      x: `${reaction.x}%`,
+                      scale: 1
+                    }}
+                    animate={{ 
+                      opacity: 0,
+                      y: -200,
+                      scale: 1.5,
+                      transition: { 
+                        duration: 2,
+                        ease: "easeOut"
+                      }
+                    }}
+                    exit={{ opacity: 0 }}
+                  >
+                    {reaction.emoji}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            {/* Chat Header */}
+            <div className="border-b border-primary/10 p-3 flex items-center justify-between bg-white/5">
+              <div className="flex items-center gap-3">
+                <button 
+                  className="md:hidden text-primary/60 hover:text-primary"
+                  onClick={() => setIsChatOpen(false)}
                 >
-                  {loadingMore ? (
-                    <span className="flex items-center">
-                      <span className="animate-spin h-3 w-3 border-2 border-slate-300 border-t-slate-600 rounded-full mr-2"></span>
-                      Loading...
-                    </span>
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <h3 className="text-base font-medium text-primary">Live Chat</h3>
+                <div className="flex items-center gap-2 text-sm text-primary/60">
+                  <Users className="h-4 w-4" />
+                  <span>{onlineUsers}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages Container with Fade Effect */}
+            <div
+              ref={messagesContainerRef}
+              className="h-[calc(100%-8rem)] overflow-y-auto py-2 space-y-2"
+              onClick={markMessagesAsRead}
+              style={{
+                background: 'linear-gradient(180deg, transparent, rgba(255,255,255,0.05) 10%, rgba(255,255,255,0.05) 90%, transparent)',
+                maskImage: 'linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)',
+                WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)'
+              }}
+            >
+              {/* Load More Button */}
+              {hasMoreMessages && (
+                <div className="text-center mb-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={loadMoreMessages}
+                    disabled={loadingMore}
+                    className="text-xs text-primary/60 hover:text-primary hover:bg-primary/10"
+                  >
+                    {loadingMore ? (
+                      <span className="flex items-center gap-2">
+                        <span className="animate-spin h-3 w-3 border-2 border-primary/40 border-t-primary rounded-full" />
+                        Loading...
+                      </span>
+                    ) : (
+                      "Show more"
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {/* Messages */}
+              {isLoading ? (
+                <div className="flex justify-center items-center h-full">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary/20 border-t-primary rounded-full" />
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-primary/40">
+                  <MessageCircle className="h-12 w-12 mb-2 opacity-50" />
+                  <p>No messages yet</p>
+                </div>
+              ) : (
+                <AnimatePresence initial={false}>
+                  {messages.map((msg) => (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.2 }}
+                      className="px-4 py-1.5 hover:bg-primary/5 group"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shadow-lg ${getAvatarColor(msg.senderId)}`}>
+                          {getInitials(msg.senderName)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-2">
+                            <span className={`text-base font-medium ${getUsernameColor(msg.senderId)}`}>
+                              {formatUsername(msg.senderName)}
+                            </span>
+                            <span className="text-xs text-primary/40 group-hover:opacity-100 opacity-0">
+                              {msg.createdAt?.toDate().toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-base text-primary/90 break-words">
+                            {msg.text}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className="absolute bottom-0 left-0 right-0 p-3 bg-white/5 border-t border-primary/10">
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-primary/60 hover:text-primary hover:bg-primary/10"
+                  onClick={() => setShowReactions(!showReactions)}
+                >
+                  <Smile className="h-6 w-6" />
+                </Button>
+
+                <Input
+                  ref={inputRef}
+                  className="flex-1 bg-white/10 border-primary/20 text-primary placeholder-primary/40 text-base"
+                  placeholder="Send a message"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  disabled={isSending}
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim() || isSending}
+                  className="bg-primary hover:bg-primary/90 px-3"
+                  size="icon"
+                >
+                  {isSending ? (
+                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
                   ) : (
-                    "Load earlier messages"
+                    <Send className="h-5 w-5" />
                   )}
                 </Button>
               </div>
-            )}
-            
-            {messages.length === 0 ? (
-              <p className="text-base text-gray-500 text-center mt-20">
-                No messages yet. Start the conversation!
-              </p>
-            ) : (
-              messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className={`mb-3 max-w-[80%] ${
-                    msg.senderId === currentUser.uid ? "ml-auto text-right" : "mr-auto text-left"
-                  }`}
+
+              {/* Reactions Panel */}
+              <AnimatePresence>
+                {showReactions && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute bottom-16 left-0 right-0 p-3 bg-white/10 border-t border-primary/10 flex flex-wrap gap-3 justify-center"
+                    style={{ backdropFilter: 'blur(8px)' }}
+                  >
+                    {REACTIONS.map((reaction) => (
+                      <motion.button
+                        key={reaction}
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="text-3xl cursor-pointer hover:transform hover:scale-110 transition-transform"
+                        onClick={() => handleReaction(reaction)}
+                      >
+                        {reaction}
+                      </motion.button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Scroll to Bottom Button */}
+            <AnimatePresence>
+              {showScrollButton && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="absolute bottom-16 right-4 bg-white/10 text-primary rounded-full p-2 shadow-lg opacity-75 hover:opacity-100 border border-primary/20"
+                  onClick={scrollToBottom}
+                  style={{ backdropFilter: 'blur(4px)' }}
                 >
-                  <div className={`px-4 py-3 rounded-lg ${
-                    msg.senderId === currentUser.uid ? "bg-green-200" : "bg-blue-200"
-                  }`}>
-                    <p className="text-sm font-semibold mb-1">
-                      {formatUsername(msg.senderName)}
-                    </p>
-                    <p className="text-base">{msg.text}</p>
-                    {msg.createdAt && (
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        {msg.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              ))
-            )}
-            <div ref={messagesEndRef} />
-          </>
+                  <ChevronDown className="h-5 w-5" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
         )}
-        
-        {/* Scroll to bottom button */}
-        {showScrollButton && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed bottom-24 right-6 bg-slate-700 text-white rounded-full p-2 shadow-lg"
-            onClick={scrollToBottom}
-          >
-            <ChevronDown className="h-4 w-4" />
-          </motion.button>
-        )}
-      </div>
-      
-      {/* Input area */}
-      <div className="flex mt-4 gap-3">
-        <Input
-          ref={inputRef}
-          className="flex-1"
-          placeholder="Type your message..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
-          disabled={isSending}
-        />
-        <Button 
-          onClick={handleSendMessage} 
-          disabled={!newMessage.trim() || isSending}
-        >
-          {isSending ? (
-            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-          ) : (
-            <Send className="h-4 w-4 mr-2" />
-          )}
-          Send
-        </Button>
-      </div>
-      <p className="text-xs text-slate-400 mt-2 ml-1">
-        Press Enter to send, Shift+Enter for new line
-      </p>
-    </div>
+      </AnimatePresence>
+    </>
   );
 };
 
