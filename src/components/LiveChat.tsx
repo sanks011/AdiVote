@@ -36,6 +36,7 @@ interface FloatingReaction {
   id: string;
   emoji: string;
   x: number;
+  createdAt: number;
 }
 
 interface LiveChatProps {
@@ -187,10 +188,9 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
     if (!container) return;
   
     const handleScroll = () => {
-      // Calculate if we're near bottom (within 50px)
-      const isNearBottom = 
-        container.scrollHeight - container.scrollTop - container.clientHeight < 50;
-      setShowScrollButton(!isNearBottom);
+      const isAtBottom = 
+        container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+      setShowScrollButton(!isAtBottom);
       
       if (container.scrollTop < 100 && hasMoreMessages && !loadingMore) {
         loadMoreMessages();
@@ -198,9 +198,6 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
     };
   
     container.addEventListener("scroll", handleScroll);
-    // Initial check for scroll button
-    handleScroll();
-    
     return () => container.removeEventListener("scroll", handleScroll);
   }, [hasMoreMessages, loadingMore]);
   
@@ -208,10 +205,8 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (container) {
-      const isNearBottom = 
-        container.scrollHeight - container.scrollTop - container.clientHeight < 50;
-      
-      if (isNearBottom) {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 100) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }
     }
@@ -289,24 +284,66 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
     }
   };
   
-  // Function to handle reaction click - updated version
-  const handleReaction = (reaction: string) => {
-    // Generate random X position within the chat container (between 10% and 90%)
-    const randomX = Math.random() * 80 + 10;
+  // Add effect to listen for reactions
+  useEffect(() => {
+    if (resultsVisible) return;
     
-    const newReaction = {
-      id: Math.random().toString(),
-      emoji: reaction,
-      x: randomX
-    };
+    const reactionsRef = collection(db, "classes", classId, "reactions");
+    const q = query(reactionsRef, orderBy("createdAt", "desc"), limit(50));
     
-    setFloatingReactions(prev => [...prev, newReaction]);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const reaction = change.doc.data() as FloatingReaction;
+          setFloatingReactions(prev => [...prev, reaction]);
+          
+          // Remove reaction after animation
+          setTimeout(() => {
+            setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
+            // Delete from Firebase after animation
+            deleteDoc(doc(db, "classes", classId, "reactions", change.doc.id));
+          }, 2000);
+        }
+      });
+    });
     
-    // Remove the reaction after animation completes
-    setTimeout(() => {
-      setFloatingReactions(prev => prev.filter(r => r.id !== newReaction.id));
-    }, 2000);
+    return () => unsubscribe();
+  }, [classId, resultsVisible]);
+
+  // Updated reaction handler to save to Firebase
+  const handleReaction = async (reaction: string) => {
+    try {
+      const reactionsRef = collection(db, "classes", classId, "reactions");
+      const newReaction = {
+        id: Math.random().toString(),
+        emoji: reaction,
+        x: Math.random() * 80 + 10,
+        createdAt: Date.now()
+      };
+      
+      await addDoc(reactionsRef, newReaction);
+    } catch (error) {
+      console.error("Error sending reaction:", error);
+    }
   };
+
+  // Delete reactions when results are announced
+  useEffect(() => {
+    if (resultsVisible) {
+      const deleteAllReactions = async () => {
+        const reactionsRef = collection(db, "classes", classId, "reactions");
+        const snaps = await getDocs(reactionsRef);
+        const deletions = snaps.docs.map((docSnap) =>
+          deleteDoc(doc(db, "classes", classId, "reactions", docSnap.id))
+        );
+        await Promise.all(deletions);
+        setFloatingReactions([]);
+      };
+      deleteAllReactions().catch((error) =>
+        console.error("Error clearing reactions:", error)
+      );
+    }
+  }, [classId, resultsVisible]);
   
   if (resultsVisible) return null;
   
@@ -342,8 +379,8 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
               overflow: 'hidden' // Add this to contain the floating reactions
             }}
           >
-            {/* Floating Reactions Container */}
-            <div className="absolute inset-0 pointer-events-none">
+            {/* Updated Floating Reactions Container */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
               <AnimatePresence>
                 {floatingReactions.map((reaction) => (
                   <motion.div
@@ -544,11 +581,11 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  className="absolute bottom-16 right-4 bg-white/10 text-primary rounded-full p-2 shadow-lg opacity-75 hover:opacity-100 border border-primary/20"
+                  className="absolute bottom-16 right-4 bg-white/10 text-primary rounded-full p-1.5 shadow-lg opacity-75 hover:opacity-100 border border-primary/20"
                   onClick={scrollToBottom}
                   style={{ backdropFilter: 'blur(4px)' }}
                 >
-                  <ChevronDown className="h-5 w-5" />
+                  <ChevronDown className="h-4 w-4" />
                 </motion.button>
               )}
             </AnimatePresence>
