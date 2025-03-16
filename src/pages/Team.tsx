@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Users, ArrowLeft, Github, Linkedin, Mail, Globe, Code, Palette, Database } from 'lucide-react';
+import { Users, ArrowLeft, Github, Linkedin, Mail, Globe, Code, Palette, Database, Code2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 
@@ -23,9 +23,9 @@ const Team = () => {
     {
       name: "Sahnik Biswas",
       role: "Lead Developer",
-      imageUrl: "public/sahnik.jpg",
+      imageUrl: "/sahnik.jpg",
       icon: <Code className="h-5 w-5 text-white" />,
-      bio: "Full-stack developer focused on creating secure and efficient voting systems. Experienced in React, Firebase, and user authentication.",
+      bio: "Full-stack developer specializing in building robust web applications with modern technologies. Passionate about creating secure, scalable solutions using React, TypeScript and cloud services.",
       links: {
         github: "https://github.com/Sahnik0",
         linkedin: "https://linkedin.com/in/sahnik-biswas",
@@ -35,9 +35,9 @@ const Team = () => {
     {
       name: "Pranjal Mohata",
       role: "UI/UX Designer",
-      imageUrl: "public/pranjal.jpg",
+      imageUrl: "/pranjal.jpg",
       icon: <Palette className="h-5 w-5 text-white" />,
-      bio: "Creative designer with a passion for creating intuitive and accessible user interfaces. Contributed to the visual design and user experience of AdiVote.",
+      bio: "Creative designer focused on crafting beautiful and intuitive user experiences. Skilled in UI/UX design principles and contributed to making AdiVote visually appealing and user-friendly.",
       links: {
         github: "https://github.com/pmohata34",
         linkedin: "https://www.linkedin.com/in/pranjal-mohata-926617289?",
@@ -46,10 +46,10 @@ const Team = () => {
     },
     {
       name: "Sankalpa Sarkar",
-      role: "Backend Developer",
-      imageUrl: "public/sankalpa.jpg",
-      icon: <Database className="h-5 w-5 text-white" />,
-      bio: "Specialized in database management and API development. Responsible for the secure voting infrastructure and data integrity of the AdiVote platform.",
+      role: "Full Stack Developer",
+      imageUrl: "/sankalpa.jpg",
+      icon: <Code2 className="h-5 w-5 text-white" />,
+      bio: "Full-stack developer with expertise in both frontend and backend technologies. Contributed to the development of secure voting infrastructure and real-time features of the AdiVote platform.",
       links: {
         github: "https://github.com/sanks011",
         linkedin: "https://www.linkedin.com/in/sankalpacodes",
