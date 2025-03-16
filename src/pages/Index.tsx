@@ -421,7 +421,7 @@ const Index = () => {
                   transition={{ duration: 0.8, delay: 0.4 }}
                 >
                   {settings?.electionDescription ||
-                    "Vote for your Class Representative in a secure, transparent and fair election process."}
+                    "Vote for your Class Representative"}
                 </motion.p>
 
                 <motion.div
