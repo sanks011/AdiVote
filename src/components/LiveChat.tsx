@@ -12,7 +12,8 @@ import {
   updateDoc,
   limit,
   startAfter,
-  getDoc
+  getDoc,
+  where
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -188,9 +189,10 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
     if (!container) return;
   
     const handleScroll = () => {
-      const isAtBottom = 
-        container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
-      setShowScrollButton(!isAtBottom);
+      // Only show scroll button if we're not at bottom AND there are messages
+      const isNearBottom = 
+        container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+      setShowScrollButton(!isNearBottom && messages.length > 0);
       
       if (container.scrollTop < 100 && hasMoreMessages && !loadingMore) {
         loadMoreMessages();
@@ -198,8 +200,9 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
     };
   
     container.addEventListener("scroll", handleScroll);
+    handleScroll(); // Check initial scroll position
     return () => container.removeEventListener("scroll", handleScroll);
-  }, [hasMoreMessages, loadingMore]);
+  }, [hasMoreMessages, loadingMore, messages.length]);
   
   // Auto-scroll to bottom for new messages
   useEffect(() => {
@@ -345,6 +348,38 @@ const LiveChat: React.FC<LiveChatProps> = ({ classId, currentUser, resultsVisibl
     }
   }, [classId, resultsVisible]);
   
+  // Add message cleanup effect
+  useEffect(() => {
+    if (resultsVisible) return;
+
+    // Function to delete old messages
+    const cleanupOldMessages = async () => {
+      try {
+        const chatRef = collection(db, "classes", classId, "chat");
+        const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000); // 2 minutes ago
+        
+        const q = query(
+          chatRef,
+          orderBy("createdAt", "asc"),
+          // Use where clause to only get messages older than 2 minutes
+          where("createdAt", "<", twoMinutesAgo)
+        );
+        
+        const snapshot = await getDocs(q);
+        const deletions = snapshot.docs.map((doc) => deleteDoc(doc.ref));
+        await Promise.all(deletions);
+      } catch (error) {
+        console.error("Error cleaning up old messages:", error);
+      }
+    };
+
+    // Run cleanup every 20 seconds
+    const cleanupInterval = setInterval(cleanupOldMessages, 20 * 1000);
+
+    // Cleanup on unmount
+    return () => clearInterval(cleanupInterval);
+  }, [classId, resultsVisible]);
+
   if (resultsVisible) return null;
   
   return (
