@@ -142,8 +142,12 @@ const Navbar = () => {
   return (
     <div>
       <motion.div 
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#33CC33] to-[#2ecc71] z-50"
-        style={{ scaleX: scrollYProgress, transformOrigin: "0%" }}
+        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#33CC33]/80 via-[#2ecc71]/80 to-[#33CC33]/80 z-50"
+        style={{ 
+          scaleX: scrollYProgress, 
+          transformOrigin: "0%",
+          boxShadow: "0 1px 10px rgba(51, 204, 51, 0.2)"
+        }}
       />
       <motion.header 
         variants={navVariants}
@@ -152,15 +156,16 @@ const Navbar = () => {
         className={cn(
           "fixed top-0 left-0 right-0 min-h-[70px] z-40 flex items-center transition-all duration-500",
           scrolled
-            ? "border-b border-white/10 bg-white/80 backdrop-blur-xl shadow-lg"
+            ? "border-b border-white/20 bg-white/90 backdrop-blur-xl shadow-lg"
             : "bg-transparent",
           isMenuOpen && isMobile
-            ? "bg-white/90 backdrop-blur-xl shadow-lg"
+            ? "bg-white/95 backdrop-blur-xl shadow-lg"
             : ""
         )}
         style={{
-          backgroundColor: scrolled ? "rgba(255, 255, 255, 0.9)" : "transparent",
+          backgroundColor: scrolled ? "rgba(255, 255, 255, 0.95)" : "transparent",
           backdropFilter: `blur(${scrollBlur}px)`,
+          boxShadow: scrolled ? "0 4px 30px rgba(0, 0, 0, 0.1)" : "none"
         }}
       >
         <div className="container max-w-7xl mx-auto px-4 flex justify-between items-center">
@@ -171,9 +176,9 @@ const Navbar = () => {
           >
             <Link to="/" className="flex items-center">
               <motion.div 
-                className="absolute -inset-2 bg-gradient-to-r from-[#33CC33]/20 to-[#2ecc71]/20 rounded-lg blur"
+                className="absolute -inset-2 bg-gradient-to-r from-[#33CC33]/30 to-[#2ecc71]/30 rounded-lg blur-lg"
                 animate={{
-                  scale: [1, 1.1, 1],
+                  scale: [1, 1.2, 1],
                   opacity: [0.3, 0.5, 0.3],
                 }}
                 transition={{
@@ -183,7 +188,7 @@ const Navbar = () => {
                 }}
               />
               <motion.span 
-                className="font-bold text-xl md:text-2xl text-[#33CC33] flex items-center relative"
+                className="font-bold text-xl md:text-2xl bg-gradient-to-r from-[#33CC33] to-[#2ecc71] bg-clip-text text-transparent flex items-center relative"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 }}
@@ -196,7 +201,7 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           {!isMobile && (
-            <nav className="flex items-center space-x-4">
+            <nav className="flex items-center space-x-6">
               {[
                 { to: "/", label: "Home", icon: <Home className="w-4 h-4" /> },
                 ...(currentUser ? [
@@ -218,13 +223,16 @@ const Navbar = () => {
                   <Link
                     to={item.to}
                     className={cn(
-                      "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center gap-2",
+                      "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center gap-2 relative overflow-hidden",
                       (item.to === '/' && location.pathname === '/') || 
                       (item.to !== '/' && location.pathname.startsWith(item.to))
                         ? "bg-gradient-to-r from-[#33CC33] to-[#2ecc71] text-white shadow-lg shadow-[#33CC33]/20"
-                        : "hover:bg-[#F3F6F8] hover:text-[#33CC33]"
+                        : "hover:bg-[#F3F6F8] hover:text-[#33CC33] group"
                     )}
                   >
+                    <motion.span
+                      className="absolute inset-0 bg-gradient-to-r from-[#33CC33]/10 to-[#2ecc71]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    />
                     {item.icon}
                     {item.label}
                   </Link>
@@ -270,19 +278,19 @@ const Navbar = () => {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 border-[#33CC33]/20 shadow-lg backdrop-blur-lg bg-white/90">
-                    <DropdownMenuLabel className="flex flex-col">
-                      <span>{userData?.displayName || userData?.email?.split('@')[0]}</span>
-                      <span className="text-xs font-normal text-gray-500 truncate">{userData?.email}</span>
+                  <DropdownMenuContent align="end" className="w-56 border-[#33CC33]/20 shadow-xl backdrop-blur-xl bg-white/95 rounded-xl p-1">
+                    <DropdownMenuLabel className="flex flex-col p-3">
+                      <span className="font-semibold text-gray-900">{userData?.displayName || userData?.email?.split('@')[0]}</span>
+                      <span className="text-xs text-gray-500 truncate mt-1">{userData?.email}</span>
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
+                    <DropdownMenuSeparator className="bg-gray-200/50" />
                     {userClass && (
                       <>
-                        <DropdownMenuItem className="flex items-center">
+                        <DropdownMenuItem className="flex items-center p-3 focus:bg-[#33CC33]/10 rounded-lg transition-colors duration-200">
                           <School className="mr-2 h-4 w-4 text-[#33CC33]" />
                           <span className="truncate">{userClass.name}</span>
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
+                        <DropdownMenuSeparator className="bg-gray-200/50" />
                       </>
                     )}
                     <motion.div whileHover={{ x: 5 }} transition={{ type: "spring", stiffness: 400 }}>
