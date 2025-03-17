@@ -1,8 +1,8 @@
 import React from 'react';
 import { Candidate } from '../lib/firebase';
 import { Button } from '@/components/ui/button';
-import { Check } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Check, User } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -46,7 +46,13 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
       
       <div className="mb-4 flex justify-center">
         <Avatar className="h-24 w-24">
-          <AvatarFallback className="text-2xl">{candidate.name.charAt(0)}</AvatarFallback>
+          <AvatarImage 
+            src={candidate.photoURL} 
+            alt={candidate.name}
+          />
+          <AvatarFallback className="text-2xl bg-gray-100">
+            {candidate.name.charAt(0)}
+          </AvatarFallback>
         </Avatar>
       </div>
       
@@ -54,7 +60,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
       <p className="mt-1 text-sm text-center text-gray-500">{candidate.position}</p>
       
       <div className="mt-4">
-        <p className="text-sm text-gray-600 line-clamp-3">{candidate.bio}</p>
+        <p className="text-sm text-gray-600 line-clamp-3">{candidate.bio || candidate.description}</p>
       </div>
       
       {showResults && (
