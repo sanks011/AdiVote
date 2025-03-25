@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.adamasuniversity.ac.in/voting/sitemap.xml
