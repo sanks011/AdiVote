@@ -4,7 +4,7 @@
 
 A web-based voting application built with **React, TypeScript, and modern web technologies** designed to manage and facilitate voting processes.  
 
-🔗 **GitHub Repository:** [Voting System](https://github.com/Sahnik0/adiVote)  
+🔗 **GitHub Repository:** [Voting System](https://github.com/sanks011/AdiVote)  
 
 ---
 
